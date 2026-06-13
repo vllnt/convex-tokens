@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { internalMutation, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
@@ -7,6 +8,19 @@ import {
   MIN_TTL_MS,
   PRUNE_BATCH,
 } from "../shared";
+
+/**
+ * Minimum length of a valid hex digest (SHA-256 = 64 hex chars).
+ *
+ * The component only stores hashes — a `tokenHash` shorter than this or
+ * containing non-hex characters is not a plausible digest and is rejected. This
+ * guards against a misconfigured or adversarial host calling the component
+ * mutation directly and persisting a raw secret or garbage string.
+ */
+const MIN_HASH_LENGTH = 64;
+
+/** Pattern that a plausible hex digest must satisfy (lowercase hex only). */
+const HASH_PATTERN = /^[0-9a-f]+$/;
 
 /**
  * Mint a token. The component computes `expiresAt` itself from a requested
@@ -26,6 +40,17 @@ export const mint = mutation({
   },
   returns: v.id("tokens"),
   handler: async (ctx, args) => {
+    const isPlausibleHash =
+      args.tokenHash.length >= MIN_HASH_LENGTH &&
+      HASH_PATTERN.test(args.tokenHash);
+    if (!isPlausibleHash) {
+      throw new ConvexError({
+        code: "INVALID_TOKEN_HASH",
+        message:
+          "tokenHash must be a lowercase hex digest of at least 64 characters (SHA-256 minimum). " +
+          "Use client.hashToken() to produce a valid hash.",
+      });
+    }
     const ttl = clampTtl(args.ttlMs, MIN_TTL_MS, args.maxTtlMs, args.defaultTtlMs);
     const now = Date.now();
     return await ctx.db.insert("tokens", {
@@ -39,7 +64,20 @@ export const mint = mutation({
   },
 });
 
-/** Revoke the token with `tokenHash` in `scope`. Returns true if one was revoked. */
+/**
+ * Revoke the token with `tokenHash` in `scope`.
+ *
+ * Returns `true` **only if this call transitioned the token from active to
+ * revoked** (i.e. it existed in the given scope and was not already revoked).
+ * Returns `false` for an unknown token, a wrong-scope token, or a token that
+ * is already in the revoked state — the caller can distinguish "nothing to
+ * revoke" from "successfully revoked".
+ *
+ * @remarks This is the "true = transition" contract, not "true = now revoked".
+ *   Calling revoke twice on the same token returns `true` the first time and
+ *   `false` the second time. Use `getMetadata` to check the current state
+ *   without side effects.
+ */
 export const revoke = mutation({
   args: { tokenHash: v.string(), scope: v.string() },
   returns: v.boolean(),
@@ -48,7 +86,7 @@ export const revoke = mutation({
       .query("tokens")
       .withIndex("by_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .unique();
-    if (row === null || row.scope !== args.scope) {
+    if (row === null || row.scope !== args.scope || row.revoked) {
       return false;
     }
     await ctx.db.patch(row._id, { revoked: true });

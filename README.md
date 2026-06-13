@@ -90,10 +90,10 @@ See [docs/API.md](docs/API.md). Summary:
 
 | Method | Kind | Result |
 |--------|------|--------|
-| `mint(ctx, { scope?, resourceRef?, ttlMs? })` | mutation | `{ token, id }` (raw token shown once; TTL clamped server-side) |
-| `validate(ctx, rawToken, scope?)` | query | `{ valid, resourceRef? }` (expiry checked against server clock) |
-| `revoke(ctx, rawToken, scope?)` | mutation | `boolean` (true if revoked) |
-| `list(ctx, { scope?, resourceRef?, limit? })` | query | `TokenMetadata[]` (metadata only — never the hash) |
+| `mint(ctx, { scope?, resourceRef?, ttlMs? })` | mutation | `{ token, id }` (raw token shown once; TTL clamped server-side; hash guard rejects invalid digests) |
+| `validate(ctx, rawToken, scope?)` | query | `{ valid: true, resourceRef? } \| { valid: false }` (discriminated union; expiry from server clock) |
+| `revoke(ctx, rawToken, scope?)` | mutation | `boolean` (`true` = transitioned to revoked this call; `false` = already revoked, wrong scope, or unknown) |
+| `list(ctx, { scope?, resourceRef?, limit? })` | query | `TokenMetadata[]` (metadata only — never the hash; `limit` clamped to 1000) |
 | `getMetadata(ctx, id)` | query | `TokenMetadata \| null` (metadata only — never the hash) |
 | `prune(ctx, before?)` | mutation | `number` (tokens deleted in a bounded batch) |
 
@@ -152,9 +152,27 @@ and the component computes `expiresAt` from its own clock; `validate` reads
 could forge, so an expired token cannot be revived. A non-finite `ttlMs` falls
 back to the default — a malformed request can never mint a non-expiring token.
 
+**Server-side hash guard.** The `mint` mutation validates the `tokenHash` it
+receives: a string shorter than 64 characters or containing non-lowercase-hex
+characters is rejected with `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This
+guards the component trust boundary against a misconfigured or adversarial direct
+caller; the client's `hashToken` always produces a compliant digest.
+
+**`validate` return is a discriminated union.** `{ valid: false }` structurally
+cannot carry `resourceRef` — the failed branch has no such key. Use `result.valid`
+to narrow the type: if `true`, `result.resourceRef` is available; if `false`, the
+result object has only the `valid` key.
+
+**`revoke` uses the transition contract.** `revoke` returns `true` only if this
+call transitioned a token from active to revoked. A second call returns `false`
+(already revoked). This lets callers distinguish "successfully revoked now" from
+"was already revoked before this call". Use `getMetadata` to inspect state without
+side effects.
+
 The **management surface** (`list`, `getMetadata`) projects only non-secret
 metadata — never `tokenHash` — so an admin UI can enumerate and inspect tokens
-without ever touching a value that could reconstruct a hash.
+without ever touching a value that could reconstruct a hash. The `list` query
+caps results at **1000 rows** regardless of the `limit` argument.
 
 Component tables are sandboxed; the host reaches them only through the exported
 functions. `resourceRef` and `scope` are opaque strings the component never

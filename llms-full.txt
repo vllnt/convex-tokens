@@ -98,10 +98,10 @@ See [docs/API.md](docs/API.md). Summary:
 
 | Method | Kind | Result |
 |--------|------|--------|
-| `mint(ctx, { scope?, resourceRef?, ttlMs? })` | mutation | `{ token, id }` (raw token shown once; TTL clamped server-side) |
-| `validate(ctx, rawToken, scope?)` | query | `{ valid, resourceRef? }` (expiry checked against server clock) |
-| `revoke(ctx, rawToken, scope?)` | mutation | `boolean` (true if revoked) |
-| `list(ctx, { scope?, resourceRef?, limit? })` | query | `TokenMetadata[]` (metadata only — never the hash) |
+| `mint(ctx, { scope?, resourceRef?, ttlMs? })` | mutation | `{ token, id }` (raw token shown once; TTL clamped server-side; hash guard rejects invalid digests) |
+| `validate(ctx, rawToken, scope?)` | query | `{ valid: true, resourceRef? } \| { valid: false }` (discriminated union; expiry from server clock) |
+| `revoke(ctx, rawToken, scope?)` | mutation | `boolean` (`true` = transitioned to revoked this call; `false` = already revoked, wrong scope, or unknown) |
+| `list(ctx, { scope?, resourceRef?, limit? })` | query | `TokenMetadata[]` (metadata only — never the hash; `limit` clamped to 1000) |
 | `getMetadata(ctx, id)` | query | `TokenMetadata \| null` (metadata only — never the hash) |
 | `prune(ctx, before?)` | mutation | `number` (tokens deleted in a bounded batch) |
 
@@ -160,9 +160,27 @@ and the component computes `expiresAt` from its own clock; `validate` reads
 could forge, so an expired token cannot be revived. A non-finite `ttlMs` falls
 back to the default — a malformed request can never mint a non-expiring token.
 
+**Server-side hash guard.** The `mint` mutation validates the `tokenHash` it
+receives: a string shorter than 64 characters or containing non-lowercase-hex
+characters is rejected with `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This
+guards the component trust boundary against a misconfigured or adversarial direct
+caller; the client's `hashToken` always produces a compliant digest.
+
+**`validate` return is a discriminated union.** `{ valid: false }` structurally
+cannot carry `resourceRef` — the failed branch has no such key. Use `result.valid`
+to narrow the type: if `true`, `result.resourceRef` is available; if `false`, the
+result object has only the `valid` key.
+
+**`revoke` uses the transition contract.** `revoke` returns `true` only if this
+call transitioned a token from active to revoked. A second call returns `false`
+(already revoked). This lets callers distinguish "successfully revoked now" from
+"was already revoked before this call". Use `getMetadata` to inspect state without
+side effects.
+
 The **management surface** (`list`, `getMetadata`) projects only non-secret
 metadata — never `tokenHash` — so an admin UI can enumerate and inspect tokens
-without ever touching a value that could reconstruct a hash.
+without ever touching a value that could reconstruct a hash. The `list` query
+caps results at **1000 rows** regardless of the `limit` argument.
 
 Component tables are sandboxed; the host reaches them only through the exported
 functions. `resourceRef` and `scope` are opaque strings the component never
@@ -227,6 +245,21 @@ All notable changes to this project are documented here. The format is based on
 - Expiry is enforced from the component's own clock; there is no client-supplied
   `now` or `expiresAt` to bypass it.
 - The management surface (`list`, `getMetadata`) never exposes `tokenHash`.
+- **Server-side hash guard on `mint`**: the component now rejects a `tokenHash`
+  argument that is not a plausible hex digest (minimum 64 characters, lowercase
+  hex only — SHA-256 minimum). A misconfigured or adversarial direct caller
+  cannot persist a raw token or garbage string as the stored digest. Throws
+  `ConvexError({ code: "INVALID_TOKEN_HASH" })`.
+- **Discriminated union on `validate` return**: `{ valid: false }` structurally
+  cannot carry `resourceRef` — the failed branch has no such key at the type
+  level. `ValidateResult` is now a discriminated union on `valid`.
+- **`revoke` semantics clarified (transition contract)**: `revoke` returns
+  `true` only if this call transitioned a token from active to revoked. A
+  second call on the same token returns `false` (already revoked). This
+  distinguishes "successfully revoked" from "token was already revoked".
+- **`list` ceiling**: the `limit` argument is clamped to a hard ceiling of 1000
+  rows. Values above the ceiling are silently clamped; `limit: 0` returns an
+  empty array.
 
 
 ---
@@ -274,10 +307,23 @@ validate). A non-finite `ttlMs` (NaN / Infinity) falls back to `defaultTtlMs` �
 the component can never produce a non-expiring token. Defaults:
 `scope = defaultScope`, `ttlMs = defaultTtlMs`.
 
+**Hash guard (server-side):** the component validates the `tokenHash` it receives.
+A `tokenHash` shorter than 64 characters or containing non-lowercase-hex characters
+is rejected with `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This prevents a
+misconfigured or adversarial direct caller from persisting a raw token or garbage
+string. The client's `hashToken` always produces a valid digest; this guard
+hardens the component's trust boundary for direct callers.
+
 ### `revoke(ctx, rawToken, scope?) → boolean`
 
-Revoke `rawToken`. Returns `true` if a token with that hash existed in `scope`
-and was marked revoked; `false` if no match (unknown token or wrong scope).
+Revoke `rawToken`. Returns `true` **only if this call transitioned the token from
+active to revoked** — i.e. the token existed in `scope` and was not already revoked.
+Returns `false` for an unknown token, a wrong-scope token, or a token that is already
+in the revoked state.
+
+**Transition contract (not idempotent success):** calling `revoke` twice on the same
+token returns `true` the first time and `false` the second time. Use `getMetadata` to
+check the current state without side effects.
 
 ### `prune(ctx, before?) → number`
 
@@ -288,20 +334,28 @@ backlog. A component cron also runs this sweep daily (see Cron below).
 
 ## Queries
 
-### `validate(ctx, rawToken, scope?) → { valid, resourceRef? }`
+### `validate(ctx, rawToken, scope?) → ValidateResult`
 
-Validate `rawToken`. Returns `{ valid: false }` when the token is unknown, in a
-different scope, revoked, or expired (`expiresAt <= now`, with `now` read
-server-side). Otherwise returns `{ valid: true, resourceRef }` carrying the
-opaque reference the token was minted with (absent if minted without one).
+Validate `rawToken`. Returns a discriminated union on `valid`:
+
+- `{ valid: true, resourceRef? }` — the token is live; `resourceRef` is the
+  opaque host-owned reference the token was minted with, absent if minted without one.
+- `{ valid: false }` — the token is unknown, in a different scope, revoked, or
+  expired (`expiresAt <= now`, with `now` read server-side). This branch
+  structurally cannot carry `resourceRef`.
+
+Expiry is evaluated against the component's server clock — there is no client-supplied
+`now` to forge.
 
 ### `list(ctx, { scope?, resourceRef?, limit? }) → TokenMetadata[]`
 
 List token **metadata** for a management surface, filtered by `scope` and
 optional `resourceRef` via an index. Each row is
 `{ id, scope, resourceRef?, revoked, expiresAt, createdAt }` — **never
-`tokenHash`**, so the result is safe to surface to an admin UI. `limit` defaults
-to 100.
+`tokenHash`**, so the result is safe to surface to an admin UI.
+
+`limit` defaults to 100; the hard ceiling is **1000**. A value above the ceiling
+is silently clamped to 1000. `limit: 0` returns an empty array.
 
 ### `getMetadata(ctx, id) → TokenMetadata | null`
 
@@ -351,6 +405,9 @@ export const DEFAULT_REVOKED_RETENTION_MS = 86_400_000;
 
 /** Max rows a single prune mutation deletes before self-rescheduling. */
 export const PRUNE_BATCH = 256;
+
+/** Hard ceiling on the `limit` argument of `list` queries. */
+export const LIST_LIMIT_MAX = 1000;
 
 /**
  * Supported digest algorithms for {@link hashToken}. Fixed per mount — changing
@@ -442,12 +499,18 @@ export interface MintResult {
   id: string;
 }
 
-/** Result of validating a raw token. */
-export interface ValidateResult {
-  valid: boolean;
-  /** The opaque host-owned reference carried by a valid token, if any. */
-  resourceRef?: string;
-}
+/**
+ * Result of validating a raw token.
+ *
+ * Discriminated union on `valid`:
+ * - `{ valid: true, resourceRef? }` — the token is live; `resourceRef` is the
+ *   opaque host-owned reference the token was minted with, if any.
+ * - `{ valid: false }` — the token is unknown, wrong-scope, revoked, or expired.
+ *   The failed branch structurally cannot carry `resourceRef`.
+ */
+export type ValidateResult =
+  | { valid: true; resourceRef?: string }
+  | { valid: false };
 
 /**
  * Safe, leak-free metadata for one token — what a management UI may display.
@@ -754,14 +817,18 @@ export default defineSchema({
 import { v } from "convex/values";
 
 /**
- * Result of validating a token hash. `resourceRef` is the opaque host-owned
- * reference carried by the token, present only when `valid` is true and the
- * token was minted with one.
+ * Result of validating a token hash.
+ *
+ * Discriminated union on `valid`:
+ * - `{ valid: true, resourceRef? }` — the token is live and carries an optional
+ *   opaque host-owned reference.
+ * - `{ valid: false }` — the token is unknown, wrong-scope, revoked, or expired.
+ *   The failed branch structurally cannot carry `resourceRef`.
  */
-export const validateResult = v.object({
-  valid: v.boolean(),
-  resourceRef: v.optional(v.string()),
-});
+export const validateResult = v.union(
+  v.object({ valid: v.literal(true), resourceRef: v.optional(v.string()) }),
+  v.object({ valid: v.literal(false) }),
+);
 
 /**
  * Safe, leak-free projection of a token row for a management surface. NEVER
@@ -784,6 +851,7 @@ export const tokenMetadata = v.object({
 
 ```ts
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { internalMutation, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
@@ -792,6 +860,19 @@ import {
   MIN_TTL_MS,
   PRUNE_BATCH,
 } from "../shared";
+
+/**
+ * Minimum length of a valid hex digest (SHA-256 = 64 hex chars).
+ *
+ * The component only stores hashes — a `tokenHash` shorter than this or
+ * containing non-hex characters is not a plausible digest and is rejected. This
+ * guards against a misconfigured or adversarial host calling the component
+ * mutation directly and persisting a raw secret or garbage string.
+ */
+const MIN_HASH_LENGTH = 64;
+
+/** Pattern that a plausible hex digest must satisfy (lowercase hex only). */
+const HASH_PATTERN = /^[0-9a-f]+$/;
 
 /**
  * Mint a token. The component computes `expiresAt` itself from a requested
@@ -811,6 +892,17 @@ export const mint = mutation({
   },
   returns: v.id("tokens"),
   handler: async (ctx, args) => {
+    const isPlausibleHash =
+      args.tokenHash.length >= MIN_HASH_LENGTH &&
+      HASH_PATTERN.test(args.tokenHash);
+    if (!isPlausibleHash) {
+      throw new ConvexError({
+        code: "INVALID_TOKEN_HASH",
+        message:
+          "tokenHash must be a lowercase hex digest of at least 64 characters (SHA-256 minimum). " +
+          "Use client.hashToken() to produce a valid hash.",
+      });
+    }
     const ttl = clampTtl(args.ttlMs, MIN_TTL_MS, args.maxTtlMs, args.defaultTtlMs);
     const now = Date.now();
     return await ctx.db.insert("tokens", {
@@ -824,7 +916,20 @@ export const mint = mutation({
   },
 });
 
-/** Revoke the token with `tokenHash` in `scope`. Returns true if one was revoked. */
+/**
+ * Revoke the token with `tokenHash` in `scope`.
+ *
+ * Returns `true` **only if this call transitioned the token from active to
+ * revoked** (i.e. it existed in the given scope and was not already revoked).
+ * Returns `false` for an unknown token, a wrong-scope token, or a token that
+ * is already in the revoked state — the caller can distinguish "nothing to
+ * revoke" from "successfully revoked".
+ *
+ * @remarks This is the "true = transition" contract, not "true = now revoked".
+ *   Calling revoke twice on the same token returns `true` the first time and
+ *   `false` the second time. Use `getMetadata` to check the current state
+ *   without side effects.
+ */
 export const revoke = mutation({
   args: { tokenHash: v.string(), scope: v.string() },
   returns: v.boolean(),
@@ -833,7 +938,7 @@ export const revoke = mutation({
       .query("tokens")
       .withIndex("by_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .unique();
-    if (row === null || row.scope !== args.scope) {
+    if (row === null || row.scope !== args.scope || row.revoked) {
       return false;
     }
     await ctx.db.patch(row._id, { revoked: true });
@@ -914,6 +1019,7 @@ export const pruneExpired = internalMutation({
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { tokenMetadata, validateResult } from "./validators";
+import { LIST_LIMIT_MAX } from "../shared.js";
 
 /**
  * Validate a token by its hash. Reads the current time from `Date.now()` INSIDE
@@ -946,7 +1052,9 @@ export const validate = query({
  * List token METADATA for a management surface, projecting only non-secret
  * lifecycle fields — NEVER `tokenHash`. Filters by `scope` and optional
  * `resourceRef` via the `by_scope_resource` index (a bounded lookup, not a
- * table scan). Returns up to `limit` (default 100) rows.
+ * table scan). Returns up to `limit` (default 100, ceiling {@link LIST_LIMIT_MAX})
+ * rows. A `limit` above the ceiling is silently clamped; `limit: 0` returns an
+ * empty array.
  */
 export const list = query({
   args: {
@@ -956,7 +1064,7 @@ export const list = query({
   },
   returns: v.array(tokenMetadata),
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 100;
+    const limit = Math.min(args.limit ?? 100, LIST_LIMIT_MAX);
     const rows = await ctx.db
       .query("tokens")
       .withIndex("by_scope_resource", (q) =>

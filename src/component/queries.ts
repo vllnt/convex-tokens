@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { tokenMetadata, validateResult } from "./validators";
+import { LIST_LIMIT_MAX } from "../shared.js";
 
 /**
  * Validate a token by its hash. Reads the current time from `Date.now()` INSIDE
@@ -33,7 +34,9 @@ export const validate = query({
  * List token METADATA for a management surface, projecting only non-secret
  * lifecycle fields — NEVER `tokenHash`. Filters by `scope` and optional
  * `resourceRef` via the `by_scope_resource` index (a bounded lookup, not a
- * table scan). Returns up to `limit` (default 100) rows.
+ * table scan). Returns up to `limit` (default 100, ceiling {@link LIST_LIMIT_MAX})
+ * rows. A `limit` above the ceiling is silently clamped; `limit: 0` returns an
+ * empty array.
  */
 export const list = query({
   args: {
@@ -43,7 +46,7 @@ export const list = query({
   },
   returns: v.array(tokenMetadata),
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 100;
+    const limit = Math.min(args.limit ?? 100, LIST_LIMIT_MAX);
     const rows = await ctx.db
       .query("tokens")
       .withIndex("by_scope_resource", (q) =>

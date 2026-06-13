@@ -10,12 +10,18 @@ export interface MintResult {
   id: string;
 }
 
-/** Result of validating a raw token. */
-export interface ValidateResult {
-  valid: boolean;
-  /** The opaque host-owned reference carried by a valid token, if any. */
-  resourceRef?: string;
-}
+/**
+ * Result of validating a raw token.
+ *
+ * Discriminated union on `valid`:
+ * - `{ valid: true, resourceRef? }` — the token is live; `resourceRef` is the
+ *   opaque host-owned reference the token was minted with, if any.
+ * - `{ valid: false }` — the token is unknown, wrong-scope, revoked, or expired.
+ *   The failed branch structurally cannot carry `resourceRef`.
+ */
+export type ValidateResult =
+  | { valid: true; resourceRef?: string }
+  | { valid: false };
 
 /**
  * Safe, leak-free metadata for one token — what a management UI may display.

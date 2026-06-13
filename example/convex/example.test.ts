@@ -341,3 +341,165 @@ describe("tokens — hashAlgo config (SHA-512)", () => {
     });
   });
 });
+
+describe("tokens — security: no-leak on validate return shape (HIGH)", () => {
+  test("validate {valid:true} result never carries tokenHash", async () => {
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, { resourceRef: "u1" });
+    const result = await t.query(api.example.validate, { token });
+    expect(result.valid).toBe(true);
+    expect(result).not.toHaveProperty("tokenHash");
+    expect(result).not.toHaveProperty("hash");
+    expect(result).not.toHaveProperty("rawToken");
+  });
+
+  test("validate {valid:false} result never carries tokenHash or resourceRef", async () => {
+    const t = setup();
+    const result = await t.query(api.example.validate, { token: "unknowntoken" });
+    expect(result.valid).toBe(false);
+    expect(result).not.toHaveProperty("tokenHash");
+    expect(result).not.toHaveProperty("hash");
+    expect(result).not.toHaveProperty("rawToken");
+    expect(Object.keys(result)).not.toContain("resourceRef");
+  });
+
+  test("validate on revoked token {valid:false} has no resourceRef key", async () => {
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, { resourceRef: "u2" });
+    await t.mutation(api.example.revoke, { token });
+    const result = await t.query(api.example.validate, { token });
+    expect(result.valid).toBe(false);
+    expect(Object.keys(result)).not.toContain("resourceRef");
+    expect(result).not.toHaveProperty("tokenHash");
+  });
+
+  test("validate on expired token {valid:false} has no resourceRef key", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, {
+      resourceRef: "u3",
+      ttlMs: 60_000,
+    });
+    vi.setSystemTime(Date.now() + 10 * 60_000);
+    const result = await t.query(api.example.validate, { token });
+    expect(result.valid).toBe(false);
+    expect(Object.keys(result)).not.toContain("resourceRef");
+    vi.useRealTimers();
+  });
+
+  test("validate wrong-scope {valid:false} has no resourceRef key", async () => {
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, {
+      scope: "siteA",
+      resourceRef: "u4",
+    });
+    const result = await t.query(api.example.validate, { token, scope: "siteB" });
+    expect(result.valid).toBe(false);
+    expect(Object.keys(result)).not.toContain("resourceRef");
+  });
+});
+
+describe("tokens — TTL exact boundary (MED)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("token is valid at expiresAt - 1 ms", async () => {
+    const t = setup();
+    const { token, id } = await t.mutation(api.example.mint, {
+      resourceRef: "edge",
+      ttlMs: 60_000,
+    });
+    const meta = await t.query(api.example.getMetadata, { id });
+    vi.setSystemTime(meta!.expiresAt - 1);
+    expect(await t.query(api.example.validate, { token })).toEqual({
+      valid: true,
+      resourceRef: "edge",
+    });
+  });
+
+  test("token is invalid at exactly expiresAt (handler uses <= now)", async () => {
+    const t = setup();
+    const { token, id } = await t.mutation(api.example.mint, {
+      resourceRef: "edge2",
+      ttlMs: 60_000,
+    });
+    const meta = await t.query(api.example.getMetadata, { id });
+    vi.setSystemTime(meta!.expiresAt);
+    expect(await t.query(api.example.validate, { token })).toEqual({
+      valid: false,
+    });
+  });
+});
+
+describe("tokens — mint direct hash guard (MED)", () => {
+  test("too-short tokenHash is rejected with INVALID_TOKEN_HASH", async () => {
+    const t = setup();
+    await expect(
+      t.mutation(api.example.mintDirect, { tokenHash: "tooshort" }),
+    ).rejects.toThrow("INVALID_TOKEN_HASH");
+  });
+
+  test("non-hex tokenHash (correct length but wrong chars) is rejected", async () => {
+    const t = setup();
+    const nonHex = "X".repeat(64);
+    await expect(
+      t.mutation(api.example.mintDirect, { tokenHash: nonHex }),
+    ).rejects.toThrow("INVALID_TOKEN_HASH");
+  });
+
+  test("exactly 64 lowercase hex chars passes the guard", async () => {
+    const t = setup();
+    const validHash = "a".repeat(64);
+    const id = await t.mutation(api.example.mintDirect, { tokenHash: validHash });
+    expect(id).toBeTruthy();
+  });
+
+  test("uppercase hex is rejected (must be lowercase)", async () => {
+    const t = setup();
+    const upperHex = "A".repeat(64);
+    await expect(
+      t.mutation(api.example.mintDirect, { tokenHash: upperHex }),
+    ).rejects.toThrow("INVALID_TOKEN_HASH");
+  });
+});
+
+describe("tokens — revoke-twice contract (MED)", () => {
+  test("first revoke returns true (transition); second revoke returns false (already revoked)", async () => {
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, { resourceRef: "rr" });
+    expect(await t.mutation(api.example.revoke, { token })).toBe(true);
+    expect(await t.mutation(api.example.revoke, { token })).toBe(false);
+  });
+
+  test("revoke-twice: token stays invalid after second call", async () => {
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, { resourceRef: "rr2" });
+    await t.mutation(api.example.revoke, { token });
+    await t.mutation(api.example.revoke, { token });
+    expect(await t.query(api.example.validate, { token })).toEqual({ valid: false });
+  });
+});
+
+describe("tokens — list ceiling and zero-limit (MED)", () => {
+  test("limit above ceiling (1000) is clamped to 1000", async () => {
+    const t = setup();
+    await t.mutation(api.example.mint, { resourceRef: "a" });
+    await t.mutation(api.example.mint, { resourceRef: "b" });
+    const rows = await t.query(api.example.list, { limit: 5000 });
+    expect(rows.length).toBeLessThanOrEqual(1000);
+    expect(rows.length).toBe(2);
+  });
+
+  test("limit:0 returns empty array", async () => {
+    const t = setup();
+    await t.mutation(api.example.mint, { resourceRef: "a" });
+    const rows = await t.query(api.example.list, { limit: 0 });
+    expect(rows).toEqual([]);
+  });
+});

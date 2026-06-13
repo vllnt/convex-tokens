@@ -23,6 +23,9 @@ export const DEFAULT_REVOKED_RETENTION_MS = 86_400_000;
 /** Max rows a single prune mutation deletes before self-rescheduling. */
 export const PRUNE_BATCH = 256;
 
+/** Hard ceiling on the `limit` argument of `list` queries. */
+export const LIST_LIMIT_MAX = 1000;
+
 /**
  * Supported digest algorithms for {@link hashToken}. Fixed per mount — changing
  * it invalidates every existing hash, so a deployment picks one and keeps it.

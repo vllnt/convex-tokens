@@ -24,10 +24,10 @@ const sha512Tokens = new Tokens(components.tokens, {
 });
 
 const mintResult = v.object({ token: v.string(), id: v.string() });
-const validateOut = v.object({
-  valid: v.boolean(),
-  resourceRef: v.optional(v.string()),
-});
+const validateOut = v.union(
+  v.object({ valid: v.literal(true), resourceRef: v.optional(v.string()) }),
+  v.object({ valid: v.literal(false) }),
+);
 const metadataOut = v.object({
   id: v.string(),
   scope: v.string(),
@@ -138,4 +138,30 @@ export const runSweep = mutation({
   args: {},
   returns: v.null(),
   handler: (ctx) => ctx.runMutation(components.tokens.mutations.pruneExpired, {}),
+});
+
+/**
+ * Test harness: call the component's `mint` mutation DIRECTLY with a caller-
+ * supplied `tokenHash` string — bypassing the client's `hashToken` helper.
+ *
+ * This is intentionally NOT a pattern hosts should use in production; it exists
+ * only to exercise the server-side hash guard (Fix 1 in the security review).
+ */
+export const mintDirect = mutation({
+  args: {
+    tokenHash: v.string(),
+    scope: v.optional(v.string()),
+    ttlMs: v.optional(v.number()),
+    defaultTtlMs: v.optional(v.number()),
+    maxTtlMs: v.optional(v.number()),
+  },
+  returns: v.string(),
+  handler: (ctx, a) =>
+    ctx.runMutation(components.tokens.mutations.mint, {
+      tokenHash: a.tokenHash,
+      scope: a.scope ?? "global",
+      ttlMs: a.ttlMs ?? 86_400_000,
+      defaultTtlMs: a.defaultTtlMs ?? 86_400_000,
+      maxTtlMs: a.maxTtlMs ?? 2_592_000_000,
+    }),
 });
