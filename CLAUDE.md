@@ -81,12 +81,11 @@ The component never sees the raw token, never authenticates, and never reads hos
 
 | Changed | Update in same commit |
 |---------|----------------------|
-| Public API (client methods, args, returns, error codes) | README API table, `docs/API.md`, `llms.txt` + regenerate `llms-full.txt` |
+| Public API (client methods, args, returns, error codes) | README API table, `docs/API.md`, `llms.txt` |
 | Config options / defaults | README config section, `docs/API.md` |
 | Schema / tables / indexes | README Architecture, `docs/API.md` |
 | `convex@` peer dep version | `llms.txt` context line, README Installation peer dep note |
-| New capability / `./react` hook | README React section, `scripts/generate-llms.mjs` file list, `llms.txt` |
+| New capability / `./react` hook | README React section, `llms.txt` |
 | Version bump | `CHANGELOG.md`, version badges |
 
-Run `pnpm generate:llms` after any change above. Grep the old value before committing to confirm
-zero stale references.
+Grep the old value before committing to confirm zero stale references.
