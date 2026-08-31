@@ -74,7 +74,7 @@ export const getMetadata = query({
   args: { id: v.id("tokens") },
   returns: v.union(tokenMetadata, v.null()),
   handler: async (ctx, args) => {
-    const row = await ctx.db.get(args.id);
+    const row = await ctx.db.get("tokens", args.id);
     if (row === null) {
       return null;
     }
