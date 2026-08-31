@@ -86,7 +86,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { scope: string; tokenHash: string },
-        { resourceRef?: string; valid: boolean },
+        { resourceRef?: string; valid: true } | { valid: false },
         Name
       >;
     };

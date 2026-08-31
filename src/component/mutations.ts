@@ -89,7 +89,7 @@ export const revoke = mutation({
     if (row === null || row.scope !== args.scope || row.revoked) {
       return false;
     }
-    await ctx.db.patch(row._id, { revoked: true });
+    await ctx.db.patch("tokens", row._id, { revoked: true });
     return true;
   },
 });
@@ -108,7 +108,7 @@ export const prune = mutation({
       .withIndex("by_expires", (q) => q.lt("expiresAt", args.before))
       .take(PRUNE_BATCH);
     for (const row of expired) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("tokens", row._id);
     }
     return expired.length;
   },
@@ -131,7 +131,7 @@ export const pruneExpired = internalMutation({
       .withIndex("by_expires", (q) => q.lt("expiresAt", now))
       .take(PRUNE_BATCH);
     for (const row of expired) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("tokens", row._id);
     }
 
     let revokedDeleted = 0;
@@ -145,7 +145,7 @@ export const pruneExpired = internalMutation({
         )
         .take(remaining);
       for (const row of staleRevoked) {
-        await ctx.db.delete(row._id);
+        await ctx.db.delete("tokens", row._id);
       }
       revokedDeleted = staleRevoked.length;
     }

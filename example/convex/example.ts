@@ -130,17 +130,6 @@ export const validateSha512 = query({
 });
 
 /**
- * Drive the cron's sweep directly so tests can assert it deletes expired and
- * stale-revoked tokens. In production this runs from the component's own cron;
- * the host never needs to call it.
- */
-export const runSweep = mutation({
-  args: {},
-  returns: v.null(),
-  handler: (ctx) => ctx.runMutation(components.tokens.mutations.pruneExpired, {}),
-});
-
-/**
  * Test harness: call the component's `mint` mutation DIRECTLY with a caller-
  * supplied `tokenHash` string — bypassing the client's `hashToken` helper.
  *
