@@ -11,7 +11,12 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 # @vllnt/convex-tokens
 
 Hashed-secret token primitive with mint-once, TTL, revoke and scope, as a Convex component. Follows
-the vllnt Component Standard (see the `convex-components` hub `.claude/rules/component-standard.md`).
+the vllnt Component Standard (see the `oss-packages` hub `AGENTS.md`).
+
+## Agent instructions
+
+`AGENTS.md` is the sole agent-instruction source for this repository. Do not add
+`CLAUDE.md` or `.claude` content.
 
 ## Architecture
 
@@ -90,3 +95,9 @@ The component never sees the raw token, never authenticates, and never reads hos
 
 Run `pnpm generate:llms` after any change above. Grep the old value before committing to confirm
 zero stale references.
+
+## Generated code
+
+- Every `**/_generated/**` file is owned exclusively by Convex CLI codegen.
+- Never create, edit, lint, or format generated files manually.
+- Run `pnpm codegen` to regenerate them and commit the generated output unchanged.
