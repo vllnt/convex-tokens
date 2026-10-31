@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  deepmerge-ts@<8.0.0: 8.0.2
   handlebars@<4.7.10: 4.7.10
 
 importers:
@@ -1177,9 +1178,9 @@ packages:
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
 
-  deepmerge-ts@7.1.6:
-    resolution: {integrity: sha512-gQhL1ksGBLQbHeAo47YU6cs2ahd3Pv+8PFYoWogNZbQnNwQyOh9Ad5kbeHFiWwbKdeWQJ5Z7Y7mwb9ew2hXBLw==}
-    engines: {node: '>=16.0.0'}
+  deepmerge-ts@8.0.2:
+    resolution: {integrity: sha512-uqbvqLUMrc6p0MO+WBRtTxY55hmyh94WRwI5a++PZe54X+bfVh59FSN7uWCBCW1CCVjzjnrwzfI8zidE2obMMw==}
+    engines: {node: '>=16.9.0'}
 
   define-data-property@1.1.4:
     resolution: {integrity: sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==}
@@ -3583,7 +3584,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge-ts@7.1.6: {}
+  deepmerge-ts@8.0.2: {}
 
   define-data-property@1.1.4:
     dependencies:
@@ -3818,7 +3819,7 @@ snapshots:
   eslint-plugin-functional@9.0.5(@typescript/typescript6@6.0.2)(eslint@9.39.5):
     dependencies:
       '@typescript-eslint/utils': 8.69.0(@typescript/typescript6@6.0.2)(eslint@9.39.5)
-      deepmerge-ts: 7.1.6
+      deepmerge-ts: 8.0.2
       escape-string-regexp: 5.0.0
       eslint: 9.39.5
       is-immutable-type: 5.0.4(@typescript/typescript6@6.0.2)(eslint@9.39.5)
