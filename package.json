@@ -1,6 +1,6 @@
 {
   "name": "@vllnt/convex-tokens",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Hashed-secret token primitive with mint-once, TTL, revoke and scope, as a Convex component",
   "license": "MIT",
   "type": "module",
