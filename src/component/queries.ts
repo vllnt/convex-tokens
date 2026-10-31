@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { query } from "./_generated/server.js";
 import { tokenMetadata, validateResult } from "./validators.js";
 import { LIST_LIMIT_MAX } from "../shared.js";
@@ -46,7 +46,14 @@ export const list = query({
   },
   returns: v.array(tokenMetadata),
   handler: async (ctx, args) => {
-    const limit = Math.min(args.limit ?? 100, LIST_LIMIT_MAX);
+    const requested = args.limit ?? 100;
+    if (!Number.isInteger(requested) || requested < 0) {
+      throw new ConvexError({
+        code: "INVALID_LIMIT",
+        message: "limit must be a non-negative integer.",
+      });
+    }
+    const limit = Math.min(requested, LIST_LIMIT_MAX);
     const rows = await ctx.db
       .query("tokens")
       .withIndex("by_scope_resource", (q) =>

@@ -1,5 +1,7 @@
 /** Shared constants + pure utilities used by both `client/` and `component/`. */
 
+import { ConvexError } from "convex/values";
+
 export const COMPONENT_NAME = "tokens";
 
 /** Default namespace when the host does not scope a token. */
@@ -65,8 +67,16 @@ export async function hashToken(
  *
  * @param bytes - Entropy in bytes. Default {@link DEFAULT_TOKEN_BYTES}.
  * @returns The hex-encoded random token.
+ * @throws ConvexError `INVALID_TOKEN_BYTES` when `bytes` is not an integer >= 1.
  */
 export function generateToken(bytes = DEFAULT_TOKEN_BYTES): string {
+  // `new Uint8Array(NaN)` and `(0)` are empty: that would mint the empty token.
+  if (!Number.isInteger(bytes) || bytes < 1) {
+    throw new ConvexError({
+      code: "INVALID_TOKEN_BYTES",
+      message: "tokenBytes must be an integer >= 1.",
+    });
+  }
   const buf = new Uint8Array(bytes);
   crypto.getRandomValues(buf);
   return Array.from(buf)
