@@ -41,7 +41,10 @@ token; `ttlMs` is the requested lifetime, clamped **server-side** into
 `[MIN_TTL_MS, maxTtlMs]` (so a minted token always outlives a `Date.now()`
 validate). A non-finite `ttlMs` (NaN / Infinity) falls back to `defaultTtlMs` —
 the component can never produce a non-expiring token. Defaults:
-`scope = defaultScope`, `ttlMs = defaultTtlMs`.
+`scope = defaultScope`, `ttlMs = defaultTtlMs`. An empty `scope` or
+`resourceRef` is rejected, as is a `maxTtlMs` that is not greater than 0 (a NaN
+ceiling would otherwise produce a token that never expires), and a `tokenHash`
+that already exists.
 
 **Hash guard (server-side):** the component validates the `tokenHash` it
 receives. A `tokenHash` shorter than 64 characters or containing
@@ -58,6 +61,11 @@ from active to revoked** — i.e. the token existed in `scope` and was not alrea
 revoked. Returns `false` for an unknown token, a wrong-scope token, or a token
 that is already in the revoked state.
 
+**Single-use redemption:** `revoke` is one transaction, so when several callers
+race to revoke the same token exactly one gets `true`. To redeem a token once,
+call `revoke` and proceed only on `true`. It does not check expiry; call
+`validate` first when an expired token must not be redeemed.
+
 **Transition contract (not idempotent success):** calling `revoke` twice on the
 same token returns `true` the first time and `false` the second time. Use
 `getMetadata` to check the current state without side effects.
@@ -67,7 +75,8 @@ same token returns `true` the first time and `false` the second time. Use
 Delete up to a bounded batch of tokens whose `expiresAt` is before `before`
 (default `Date.now()`), revoked or not. Returns the number deleted in this
 batch. Idempotent and bounded — call repeatedly until it returns `0` to drain a
-backlog. A component cron also runs this sweep daily (see Cron below).
+backlog. A component cron also runs this sweep daily (see Cron below). A NaN
+`before` is rejected.
 
 ## Queries
 
@@ -92,14 +101,31 @@ optional `resourceRef` via an index. Each row is
 `{ id, scope, resourceRef?, revoked, expiresAt, createdAt }` — **never
 `tokenHash`**. Only expose it to callers authorized for that resource and scope.
 
-`limit` defaults to 100; the hard ceiling is **1000**. A value above the ceiling
-is silently clamped to 1000. `limit: 0` returns an empty array. This is a
-bounded array, not a paginated API: there is no continuation cursor.
+`limit` defaults to 100; the hard ceiling is **1000**. It must be a non-negative
+integer. A value above the ceiling is silently clamped to 1000. `limit: 0`
+returns an empty array. This is a bounded array, not a paginated API: there is
+no continuation cursor.
 
 ### `getMetadata(ctx, id) → TokenMetadata | null`
 
 Fetch the safe metadata of one token by its component `id` (the `id` returned by
 `mint`). Returns `null` if the row no longer exists. Never returns `tokenHash`.
+
+## Errors
+
+All thrown as `ConvexError({ code, message })`. Messages never include the
+supplied token or hash.
+
+| Code                   | Thrown by       | When                                                  |
+| ---------------------- | --------------- | ----------------------------------------------------- |
+| `INVALID_TOKEN_HASH`   | `mint`          | `tokenHash` is not lowercase hex of at least 64 chars |
+| `DUPLICATE_TOKEN_HASH` | `mint`          | a token with this hash already exists                 |
+| `INVALID_SCOPE`        | `mint`          | `scope` is an empty string                            |
+| `INVALID_RESOURCE_REF` | `mint`          | `resourceRef` is an empty string                      |
+| `INVALID_TTL`          | `mint`          | `maxTtlMs` is NaN, zero or negative                   |
+| `INVALID_BEFORE`       | `prune`         | `before` is NaN                                       |
+| `INVALID_LIMIT`        | `list`          | `limit` is NaN, negative or not an integer            |
+| `INVALID_TOKEN_BYTES`  | `mint` (client) | `tokenBytes` is not an integer >= 1                   |
 
 ## Cron
 

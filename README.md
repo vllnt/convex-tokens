@@ -39,8 +39,9 @@ pnpm add @vllnt/convex-tokens
 ```
 
 Requires `convex@^1.45.0`; React `>=18` is optional for `./react` only. The
-command installs `latest` (`0.1.0`); use `@vllnt/convex-tokens@canary` for the
-current prerelease. Pin a resolved canary version for reproducible installs.
+command installs the latest stable release; use `@vllnt/convex-tokens@canary`
+for the newest pre-release build from `main`, and pin a resolved canary version
+for reproducible installs.
 
 ## Usage
 
@@ -101,8 +102,7 @@ export const list = query({
 | `prune(ctx, before?)`                         | mutation | `number` (deleted in a bounded batch)                       |
 
 Full reference: [docs/API.md](docs/API.md) — including client options
-(`defaultScope`, `defaultTtlMs`, `maxTtlMs`, `hashAlgo`, …) and the hash-guard
-error code.
+(`defaultScope`, `defaultTtlMs`, `maxTtlMs`, `hashAlgo`, …) and the error codes.
 
 ## React
 
@@ -133,6 +133,11 @@ const tokens = useTokens(api.tokens.list, { resourceRef }); // TokenMetadata[] |
 - Metadata is not automatically authorized: gate `list` and `getMetadata` in the
   host, including resource and scope access. Avoid exposing a public validation
   oracle for other subjects' tokens.
+- Single use: `revoke` runs in one transaction, so of any number of concurrent
+  calls for one token exactly one returns `true`. To redeem a token once, call
+  `revoke` and act only on `true`; do not rely on a prior `validate`. `revoke`
+  does not check expiry, so reject an expired token first (`validate`) if that
+  matters.
 - Time is server-sourced (expiry can't be forged), `validate` returns a
   discriminated union, and the management surface (`list`, `getMetadata`) never
   returns the hash.
@@ -148,6 +153,22 @@ pnpm test:coverage  # enforced 100% on covered files
 
 Tests run against the real component runtime via `convex-test`
 (`@edge-runtime/vm`), not mocks.
+
+### Testing your app
+
+`@vllnt/convex-tokens/test` exports `register(t, name = "tokens")` to mount the
+component in a `convex-test` instance. It needs `convex-test` and `vitest` (with
+Vite's `import.meta.glob`) in the consuming app:
+
+```ts
+/// <reference types="vite/client" />
+import { convexTest } from "convex-test";
+import { register } from "@vllnt/convex-tokens/test";
+import schema from "./schema";
+
+const t = convexTest(schema, import.meta.glob("./**/*.ts"));
+register(t);
+```
 
 ## Contributing
 

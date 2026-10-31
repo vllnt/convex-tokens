@@ -1,13 +1,13 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internalMutation, mutation } from "./_generated/server.js";
+import { internal } from "./_generated/api.js";
 import {
   clampTtl,
   DEFAULT_REVOKED_RETENTION_MS,
   MIN_TTL_MS,
   PRUNE_BATCH,
-} from "../shared";
+} from "../shared.js";
 
 /**
  * Minimum length of a valid hex digest (SHA-256 = 64 hex chars).
@@ -40,6 +40,26 @@ export const mint = mutation({
   },
   returns: v.id("tokens"),
   handler: async (ctx, args) => {
+    if (args.scope === "") {
+      throw new ConvexError({
+        code: "INVALID_SCOPE",
+        message: "scope must be a non-empty string.",
+      });
+    }
+    if (args.resourceRef === "") {
+      throw new ConvexError({
+        code: "INVALID_RESOURCE_REF",
+        message: "resourceRef must be omitted or a non-empty string.",
+      });
+    }
+    // `!(x > 0)` also rejects NaN, which would otherwise yield a NaN `expiresAt`
+    // (never `<= now`) and so a token that never expires.
+    if (!(args.maxTtlMs > 0)) {
+      throw new ConvexError({
+        code: "INVALID_TTL",
+        message: "maxTtlMs must be a number greater than 0.",
+      });
+    }
     const isPlausibleHash =
       args.tokenHash.length >= MIN_HASH_LENGTH &&
       HASH_PATTERN.test(args.tokenHash);
@@ -49,6 +69,18 @@ export const mint = mutation({
         message:
           "tokenHash must be a lowercase hex digest of at least 64 characters (SHA-256 minimum). " +
           "Use client.hashToken() to produce a valid hash.",
+      });
+    }
+    const existing = await ctx.db
+      .query("tokens")
+      .withIndex("by_hash", (q) => q.eq("tokenHash", args.tokenHash))
+      .first();
+    if (existing !== null) {
+      // Lookups use `.unique()`; a second row with the same hash would make
+      // `validate` and `revoke` throw for that token.
+      throw new ConvexError({
+        code: "DUPLICATE_TOKEN_HASH",
+        message: "A token with this hash already exists.",
       });
     }
     const ttl = clampTtl(args.ttlMs, MIN_TTL_MS, args.maxTtlMs, args.defaultTtlMs);
@@ -103,6 +135,12 @@ export const prune = mutation({
   args: { before: v.number() },
   returns: v.number(),
   handler: async (ctx, args) => {
+    if (Number.isNaN(args.before)) {
+      throw new ConvexError({
+        code: "INVALID_BEFORE",
+        message: "before must be a number.",
+      });
+    }
     const expired = await ctx.db
       .query("tokens")
       .withIndex("by_expires", (q) => q.lt("expiresAt", args.before))

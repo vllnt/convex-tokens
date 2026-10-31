@@ -61,6 +61,9 @@ The component never sees the raw token, never authenticates, and never reads hos
 - **Server-side hash guard.** `mint` rejects any `tokenHash` shorter than 64 characters or
   containing non-lowercase-hex characters with `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This
   hardens the component trust boundary against a misconfigured or adversarial direct caller.
+- **Input validation.** `mint` rejects empty `scope`/`resourceRef`, `maxTtlMs` not > 0 (NaN would
+  mint a never-expiring token) and duplicate hashes; `list` rejects bad `limit`; `prune` rejects NaN
+  `before`; `generateToken` rejects `bytes` < 1. Error codes are tabled in `docs/API.md`.
 - **`revoke` is a transition contract, not idempotent success.** Returns `true` only if this call
   moved the token from active → revoked; returns `false` if already revoked, wrong scope, or
   unknown. Callers distinguish "successfully revoked now" from "was already revoked".

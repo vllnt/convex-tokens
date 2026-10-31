@@ -27,6 +27,16 @@ describe("generateToken — property tests", () => {
   }
 });
 
+describe("generateToken — invalid byte counts", () => {
+  for (const bytes of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    test(`generateToken(${bytes}) throws instead of returning a weak token`, () => {
+      expect(() => generateToken(bytes)).toThrow(
+        expect.objectContaining({ data: expect.objectContaining({ code: "INVALID_TOKEN_BYTES" }) }),
+      );
+    });
+  }
+});
+
 describe("hashToken — edge cases", () => {
   test("hashToken('') does not throw and returns a 64-char hex string (SHA-256)", async () => {
     const hash = await hashToken("");
