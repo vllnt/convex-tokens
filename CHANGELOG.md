@@ -21,6 +21,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `0` or `NaN` previously minted the empty token.
 - `@vllnt/convex-tokens/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
+- The published tarball no longer includes test files.
 
 ### Documentation
 
