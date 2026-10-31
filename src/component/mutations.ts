@@ -1,13 +1,13 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internalMutation, mutation } from "./_generated/server.js";
+import { internal } from "./_generated/api.js";
 import {
   clampTtl,
   DEFAULT_REVOKED_RETENTION_MS,
   MIN_TTL_MS,
   PRUNE_BATCH,
-} from "../shared";
+} from "../shared.js";
 
 /**
  * Minimum length of a valid hex digest (SHA-256 = 64 hex chars).

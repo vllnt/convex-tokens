@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+import { internal } from "./_generated/api.js";
 
 /**
  * Internal cron that sweeps expired and stale-revoked tokens daily. The cadence

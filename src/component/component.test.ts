@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { api, internal } from "./_generated/api";
-import schema from "./schema";
+import { api, internal } from "./_generated/api.js";
+import schema from "./schema.js";
 
 const modules = import.meta.glob("./**/*.ts");
 const HASH = "a".repeat(64);

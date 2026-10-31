@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
-import { tokenMetadata, validateResult } from "./validators";
+import { query } from "./_generated/server.js";
+import { tokenMetadata, validateResult } from "./validators.js";
 import { LIST_LIMIT_MAX } from "../shared.js";
 
 /**
