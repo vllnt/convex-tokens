@@ -109,6 +109,22 @@ describe("tokens component — input validation", () => {
     await expect(t.mutation(api.mutations.mint, base)).resolves.toBeTruthy();
   });
 
+  test("mint accepts SHA-512 length and 256-character refs, rejects longer", async () => {
+    const t = setup();
+    const ref = "r".repeat(256);
+    await expect(
+      t.mutation(api.mutations.mint, { ...base, tokenHash: "b".repeat(128), scope: ref, resourceRef: ref }),
+    ).resolves.toBeTruthy();
+    expect(await codeOf(t.mutation(api.mutations.mint, { ...base, tokenHash: "c".repeat(129) }))).toBe(
+      "INVALID_TOKEN_HASH",
+    );
+    expect(await codeOf(t.mutation(api.mutations.mint, { ...base, scope: `${ref}x` }))).toBe("INVALID_SCOPE");
+    expect(await codeOf(t.mutation(api.mutations.mint, { ...base, resourceRef: `${ref}x` }))).toBe(
+      "INVALID_RESOURCE_REF",
+    );
+    expect(await t.run((ctx) => ctx.db.query("tokens").collect())).toHaveLength(1);
+  });
+
   test("mint rejects a NaN, zero or negative maxTtlMs (a NaN expiry would never lapse)", async () => {
     const t = setup();
     for (const maxTtlMs of [Number.NaN, 0, -1]) {

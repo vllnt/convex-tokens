@@ -47,7 +47,7 @@ ceiling would otherwise produce a token that never expires), and a `tokenHash`
 that already exists.
 
 **Hash guard (server-side):** the component validates the `tokenHash` it
-receives. A `tokenHash` shorter than 64 characters or containing
+receives. A `tokenHash` shorter than 64 or longer than 128 characters, or containing
 non-lowercase-hex characters is rejected with
 `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This prevents a misconfigured or
 adversarial direct caller from persisting a raw token or garbage string. The
@@ -118,10 +118,10 @@ supplied token or hash.
 
 | Code                   | Thrown by       | When                                                  |
 | ---------------------- | --------------- | ----------------------------------------------------- |
-| `INVALID_TOKEN_HASH`   | `mint`          | `tokenHash` is not lowercase hex of at least 64 chars |
+| `INVALID_TOKEN_HASH`   | `mint`          | `tokenHash` is not lowercase hex of 64 to 128 chars   |
 | `DUPLICATE_TOKEN_HASH` | `mint`          | a token with this hash already exists                 |
-| `INVALID_SCOPE`        | `mint`          | `scope` is an empty string                            |
-| `INVALID_RESOURCE_REF` | `mint`          | `resourceRef` is an empty string                      |
+| `INVALID_SCOPE`        | `mint`          | `scope` is empty or longer than 256 chars             |
+| `INVALID_RESOURCE_REF` | `mint`          | `resourceRef` is empty or longer than 256 chars       |
 | `INVALID_TTL`          | `mint`          | `maxTtlMs` is NaN, zero or negative                   |
 | `INVALID_BEFORE`       | `prune`         | `before` is NaN                                       |
 | `INVALID_LIMIT`        | `list`          | `limit` is NaN, negative or not an integer            |
