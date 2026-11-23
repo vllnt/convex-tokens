@@ -8,9 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `mint` rejects a `tokenHash` longer than 128 characters (`INVALID_TOKEN_HASH`) and a `scope` or
-  `resourceRef` longer than 256 characters (`INVALID_SCOPE` / `INVALID_RESOURCE_REF`), bounding
-  stored row and index-key size.
+- **Breaking:** `mint` rejects a `tokenHash` longer than 128 characters (`INVALID_TOKEN_HASH`) and a
+  `scope` or `resourceRef` longer than 256 characters (`INVALID_SCOPE` / `INVALID_RESOURCE_REF`),
+  bounding stored row and index-key size. These values were accepted before; the client's
+  `hashToken` output (64 or 128 hex characters) is unaffected, but direct callers with longer values
+  must change them before upgrading.
 - `mint` rejects a `maxTtlMs` that is NaN, zero or negative with
   `ConvexError({ code: "INVALID_TTL" })`; a NaN ceiling produced a NaN
   `expiresAt`, i.e. a token that never expired.
