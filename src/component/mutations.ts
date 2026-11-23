@@ -22,6 +22,9 @@ const MIN_HASH_LENGTH = 64;
 /** Pattern that a plausible hex digest must satisfy (lowercase hex only). */
 const HASH_PATTERN = /^[0-9a-f]+$/;
 
+const MAX_HASH_LENGTH = 128;
+const MAX_REF_LENGTH = 256;
+
 /**
  * Mint a token. The component computes `expiresAt` itself from a requested
  * `ttlMs` — it never trusts a client-supplied timestamp. `ttlMs` is clamped into
@@ -40,16 +43,19 @@ export const mint = mutation({
   },
   returns: v.id("tokens"),
   handler: async (ctx, args) => {
-    if (args.scope === "") {
+    if (args.scope === "" || args.scope.length > MAX_REF_LENGTH) {
       throw new ConvexError({
         code: "INVALID_SCOPE",
-        message: "scope must be a non-empty string.",
+        message: `scope must be a non-empty string of at most ${String(MAX_REF_LENGTH)} characters.`,
       });
     }
-    if (args.resourceRef === "") {
+    if (
+      args.resourceRef !== undefined &&
+      (args.resourceRef === "" || args.resourceRef.length > MAX_REF_LENGTH)
+    ) {
       throw new ConvexError({
         code: "INVALID_RESOURCE_REF",
-        message: "resourceRef must be omitted or a non-empty string.",
+        message: `resourceRef must be omitted or a non-empty string of at most ${String(MAX_REF_LENGTH)} characters.`,
       });
     }
     // `!(x > 0)` also rejects NaN, which would otherwise yield a NaN `expiresAt`
@@ -62,12 +68,13 @@ export const mint = mutation({
     }
     const isPlausibleHash =
       args.tokenHash.length >= MIN_HASH_LENGTH &&
+      args.tokenHash.length <= MAX_HASH_LENGTH &&
       HASH_PATTERN.test(args.tokenHash);
     if (!isPlausibleHash) {
       throw new ConvexError({
         code: "INVALID_TOKEN_HASH",
         message:
-          "tokenHash must be a lowercase hex digest of at least 64 characters (SHA-256 minimum). " +
+          "tokenHash must be a lowercase hex digest of 64 to 128 characters (SHA-256 or SHA-512). " +
           "Use client.hashToken() to produce a valid hash.",
       });
     }
