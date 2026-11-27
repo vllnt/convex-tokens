@@ -5,21 +5,32 @@
 `@vllnt/convex-tokens` is a publishable Convex component. It targets `convex@^1.45.0`.
 It stores one sandboxed table - `tokens` - holding only the digest of each token (never the raw secret), plus `scope`, an optional opaque `resourceRef`, a `revoked` flag, `expiresAt`, and `createdAt`. The client generates the raw token and hashes it with Web Crypto (SHA-256 by default, SHA-512 configurable per mount) before any call, so the component never sees the secret; minting returns the raw value exactly once. Time is server-sourced: the component computes `expiresAt` from a requested `ttlMs` (clamped server-side into a min/max range; a non-finite `ttlMs` falls back to the default) and reads `Date.now()` inside `validate`, so expiry cannot be forged by a client clock. The `mint` mutation enforces a server-side hash guard: it rejects any `tokenHash` that is not a lowercase hex string of at least 64 characters, throwing `ConvexError({ code: "INVALID_TOKEN_HASH" })`. `mint` also rejects an empty `scope` or `resourceRef`, a non-positive or NaN `maxTtlMs`, and a duplicate hash; `list` rejects a NaN, negative or fractional `limit`; `prune` rejects a NaN `before`; the client rejects `tokenBytes` below 1 (all `ConvexError` codes, listed in docs/API.md). The `validate` result is a discriminated union: `{ valid: true, resourceRef? }` or `{ valid: false }` (the failed branch structurally cannot carry `resourceRef`). `revoke` uses a transition contract: returns `true` only if this call transitioned the token from active to revoked; a second call returns `false`. The `list` query caps results at 1000 rows. Tokens can be revoked; a built-in daily cron prunes expired and stale-revoked rows in bounded self-rescheduling batches, and `prune` is also callable directly. A safe management surface (`list`, `getMetadata`) returns token metadata - never the hash. The host owns the resource, auth, and meaning; the component owns only the hash, lifecycle, and expiry.
 
+## For coding agents
+
+The npm package bundles these docs at `node_modules/@vllnt/convex-tokens/`
+(`llms.txt`, `README.md`, `docs/API.md`, `CHANGELOG.md`, plus the TypeScript
+source in `src/`). They match the installed version. Read them before writing
+code against this package.
+
 ## Docs
 
-- [README](README.md): Project overview, installation, usage examples, architecture
-- [API Reference](docs/API.md): Public class methods, return shapes, input validation
-- [Changelog](CHANGELOG.md): Version history and release notes
-- [Contributing](CONTRIBUTING.md): Development setup, validation commands, release workflow
+- [README](./README.md): Project overview, installation, usage examples, architecture
+- [API Reference](./docs/API.md): Entry points, exports, public class methods, return shapes, input validation, error codes
+- [Changelog](./CHANGELOG.md): Version history and release notes
+- [License](./LICENSE): MIT license
 
 ## Examples
 
-- [Example component wrapper](example/convex/example.ts): Host-app wrapper functions
-- [Example tests](example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+- [Example component wrapper](https://github.com/vllnt/convex-tokens/blob/main/example/convex/example.ts): Host-app wrapper functions
+- [Example tests](https://github.com/vllnt/convex-tokens/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
 
 ## Optional
 
-- [AGENTS](AGENTS.md): Canonical agent instructions for this repository
-- [Security Policy](SECURITY.md): Vulnerability reporting policy
-- [Code of Conduct](CODE_OF_CONDUCT.md): Community participation guidelines
-- [License](LICENSE): MIT license
+- [Contributing](https://github.com/vllnt/convex-tokens/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
+- [AGENTS](https://github.com/vllnt/convex-tokens/blob/main/AGENTS.md): Agent instructions for contributors to this repository (repository only)
+- [Security Policy](https://github.com/vllnt/convex-tokens/blob/main/SECURITY.md): Vulnerability reporting policy
+- [Code of Conduct](https://github.com/vllnt/convex-tokens/blob/main/CODE_OF_CONDUCT.md): Community participation guidelines
+
+## Ecosystem
+
+- [vllnt oss](https://oss.vllnt.com/llms.txt): Index of the other vllnt open-source packages

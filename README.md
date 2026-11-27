@@ -43,6 +43,13 @@ command installs the latest stable release; use `@vllnt/convex-tokens@canary`
 for the newest pre-release build from `main`, and pin a resolved canary version
 for reproducible installs.
 
+## For coding agents
+
+The npm package bundles its docs at `node_modules/@vllnt/convex-tokens/`:
+`llms.txt`, `README.md`, `docs/API.md` and `CHANGELOG.md`, plus the TypeScript
+source in `src/`. They match the installed version. Read them before writing
+code against this package.
+
 ## Usage
 
 ```ts
@@ -170,6 +177,18 @@ const t = convexTest(schema, import.meta.glob("./**/*.ts"));
 register(t);
 ```
 
+## Related packages
+
+- [`@vllnt/convex-api-keys`](https://oss.vllnt.com/packages/convex-api-keys) —
+  API keys with rotation and usage tracking. Use it for keys a customer manages
+  and rotates; use `convex-tokens` for expiring, scoped secrets.
+- [`@vllnt/convex-invitations`](https://oss.vllnt.com/packages/convex-invitations)
+  — a complete invite → accept → expire flow. Use it for invitations; use
+  `convex-tokens` when you build your own single-use link flow.
+- [`@vllnt/convex-memberships`](https://oss.vllnt.com/packages/convex-memberships)
+  — a membership and relationship graph (ReBAC tuples). Pair it with
+  `convex-tokens` to record access once a token is redeemed.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -179,11 +198,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 Built by [bntvllnt](https://github.com/bntvllnt) ·
 [bntvllnt.com](https://bntvllnt.com) · [X @bntvllnt](https://x.com/bntvllnt)
 
-Part of the [@vllnt](https://github.com/vllnt) Convex component fleet —
-[vllnt.com](https://vllnt.com)
-
 If this is useful, [sponsor the work](https://github.com/sponsors/bntvllnt).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Part of vllnt oss: https://oss.vllnt.com
