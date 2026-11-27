@@ -2,6 +2,21 @@
 
 **Compatibility:** `convex@^1.45.0`; optional `react@>=18` for `./react`.
 
+## Entry points
+
+| Import                                                       | Exports                                                                                                                                   |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `@vllnt/convex-tokens`                                       | `Tokens` (class); types `TokensComponent`, `TokensOptions`, `MintOptions`, `ListOptions`, `MintResult`, `ValidateResult`, `TokenMetadata` |
+| `@vllnt/convex-tokens/convex.config` (or `.js`)              | default: the component definition, for `app.use(tokens)`                                                                                  |
+| `@vllnt/convex-tokens/react`                                 | `useTokens(listRef, { scope?, resourceRef })`                                                                                             |
+| `@vllnt/convex-tokens/test`                                  | `register(t, name = "tokens")` for `convex-test`                                                                                          |
+| `@vllnt/convex-tokens/_generated/component.js` (or no `.js`) | type `ComponentApi` (types only)                                                                                                          |
+
+Constants such as `MIN_TTL_MS` (60 000 ms) and the defaults below are not
+exported; their values are listed where they apply.
+
+## Client
+
 Construct the client with the mounted component and optional config:
 
 ```ts
@@ -38,21 +53,21 @@ Mint a new token. `token` is the raw secret — return it to the caller **now**,
 it is never recoverable afterwards. `id` is the component-side record id (use it
 with `getMetadata`). `resourceRef` is an opaque host reference carried on the
 token; `ttlMs` is the requested lifetime, clamped **server-side** into
-`[MIN_TTL_MS, maxTtlMs]` (so a minted token always outlives a `Date.now()`
-validate). A non-finite `ttlMs` (NaN / Infinity) falls back to `defaultTtlMs` —
-the component can never produce a non-expiring token. Defaults:
-`scope = defaultScope`, `ttlMs = defaultTtlMs`. An empty `scope` or
-`resourceRef` is rejected, as is a `maxTtlMs` that is not greater than 0 (a NaN
-ceiling would otherwise produce a token that never expires), and a `tokenHash`
-that already exists.
+`[MIN_TTL_MS, maxTtlMs]`, so a minted token lives at least 60 000 ms. The
+ceiling wins: a `maxTtlMs` below 60 000 ms caps the lifetime below that floor. A
+non-finite `ttlMs` (NaN / Infinity) falls back to `defaultTtlMs` — the component
+can never produce a non-expiring token. Defaults: `scope = defaultScope`,
+`ttlMs = defaultTtlMs`. An empty `scope` or `resourceRef` is rejected, as is a
+`maxTtlMs` that is not greater than 0 (a NaN ceiling would otherwise produce a
+token that never expires), and a `tokenHash` that already exists.
 
 **Hash guard (server-side):** the component validates the `tokenHash` it
 receives. A `tokenHash` shorter than 64 characters or containing
 non-lowercase-hex characters is rejected with
 `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This prevents a misconfigured or
 adversarial direct caller from persisting a raw token or garbage string. The
-client's `hashToken` always produces a valid digest; this guard hardens the
-component's trust boundary for direct callers.
+`Tokens` client always sends a valid digest; this guard hardens the component's
+trust boundary for direct callers.
 
 ### `revoke(ctx, rawToken, scope?) → boolean`
 
@@ -72,9 +87,9 @@ same token returns `true` the first time and `false` the second time. Use
 
 ### `prune(ctx, before?) → number`
 
-Delete up to a bounded batch of tokens whose `expiresAt` is before `before`
-(default `Date.now()`), revoked or not. Returns the number deleted in this
-batch. Idempotent and bounded — call repeatedly until it returns `0` to drain a
+Delete up to 256 tokens whose `expiresAt` is before `before` (default
+`Date.now()`), revoked or not. Returns the number deleted in this batch.
+Idempotent and bounded — call repeatedly until it returns `0` to drain a
 backlog. A component cron also runs this sweep daily (see Cron below). A NaN
 `before` is rejected.
 
@@ -134,8 +149,9 @@ The component registers an internal daily cron
 self-rescheduling batches:
 
 1. expired tokens, and
-2. revoked tokens older than `DEFAULT_REVOKED_RETENTION_MS` (24h) — so an
-   early-revoked token does not linger for its full TTL.
+2. revoked tokens created more than 24h ago — so an early-revoked token does not
+   linger for its full TTL. The age is measured from `createdAt`, not from the
+   revocation time.
 
 The cadence is fixed at the component layer (Convex crons are static). A mount
 that needs a different frequency can additionally call `prune` from its own

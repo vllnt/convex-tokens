@@ -25,6 +25,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Documentation
 
+- The npm package now ships `docs/API.md`, `CHANGELOG.md` and `llms.txt`, so
+  coding agents can read docs that match the installed version from
+  `node_modules/@vllnt/convex-tokens/`. `llms.txt` links shipped files
+  relatively; `pnpm lint` fails when a required doc is missing from the tarball.
+- `docs/API.md` lists the entry points and exports.
 - Document the error codes, the single-use pattern (`revoke` returns `true` for
   exactly one concurrent caller) and `/test` usage in the consuming app.
 
