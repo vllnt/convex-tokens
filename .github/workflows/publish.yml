@@ -16,6 +16,7 @@ on:
       - "README.md"
       - "CHANGELOG.md"
       - "llms.txt"
+      - "LICENSE"
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/publish.yml"

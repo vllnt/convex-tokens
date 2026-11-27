@@ -9,7 +9,7 @@
 
 Hashed-secret token primitive with mint-once, TTL, revoke and scope, as a Convex
 component — mint a secret against an opaque `resourceRef`, return the raw value
-once, and store only its SHA-256 hash.
+once, and store only its SHA-256 (or SHA-512) hash.
 
 ```ts
 const tokens = new Tokens(components.tokens);
@@ -191,7 +191,8 @@ register(t);
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See
+[CONTRIBUTING.md](https://github.com/vllnt/convex-tokens/blob/main/CONTRIBUTING.md).
 
 ## Author
 

@@ -97,8 +97,7 @@ The component never sees the raw token, never authenticates, and never reads hos
 | Version bump | `CHANGELOG.md`, version badges |
 
 Run `pnpm generate:llms` (it validates the `llms.txt` links) after any change above. `pnpm lint`
-runs `pnpm check:package`, which fails when a shipped doc is missing from the tarball or an
-`llms.txt` link does not resolve inside it. Grep the old value before committing to confirm
+also runs `pnpm check:package` (shipped docs and their links in the tarball). Grep the old value before committing to confirm
 zero stale references.
 
 ## Generated code

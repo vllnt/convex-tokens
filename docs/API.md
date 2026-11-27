@@ -4,13 +4,13 @@
 
 ## Entry points
 
-| Import                                         | Exports                                                                                                                                   |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `@vllnt/convex-tokens`                         | `Tokens` (class); types `TokensComponent`, `TokensOptions`, `MintOptions`, `ListOptions`, `MintResult`, `ValidateResult`, `TokenMetadata` |
-| `@vllnt/convex-tokens/convex.config`           | default: the component definition, for `app.use(tokens)`                                                                                  |
-| `@vllnt/convex-tokens/react`                   | `useTokens(listRef, { scope?, resourceRef })`                                                                                             |
-| `@vllnt/convex-tokens/test`                    | `register(t, name = "tokens")` for `convex-test`                                                                                          |
-| `@vllnt/convex-tokens/_generated/component.js` | type `ComponentApi` (types only)                                                                                                          |
+| Import                                                       | Exports                                                                                                                                   |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `@vllnt/convex-tokens`                                       | `Tokens` (class); types `TokensComponent`, `TokensOptions`, `MintOptions`, `ListOptions`, `MintResult`, `ValidateResult`, `TokenMetadata` |
+| `@vllnt/convex-tokens/convex.config` (or `.js`)              | default: the component definition, for `app.use(tokens)`                                                                                  |
+| `@vllnt/convex-tokens/react`                                 | `useTokens(listRef, { scope?, resourceRef })`                                                                                             |
+| `@vllnt/convex-tokens/test`                                  | `register(t, name = "tokens")` for `convex-test`                                                                                          |
+| `@vllnt/convex-tokens/_generated/component.js` (or no `.js`) | type `ComponentApi` (types only)                                                                                                          |
 
 Constants such as `MIN_TTL_MS` (60 000 ms) and the defaults below are not
 exported; their values are listed where they apply.
@@ -53,21 +53,21 @@ Mint a new token. `token` is the raw secret — return it to the caller **now**,
 it is never recoverable afterwards. `id` is the component-side record id (use it
 with `getMetadata`). `resourceRef` is an opaque host reference carried on the
 token; `ttlMs` is the requested lifetime, clamped **server-side** into
-`[MIN_TTL_MS, maxTtlMs]` (so a minted token always outlives a `Date.now()`
-validate). A non-finite `ttlMs` (NaN / Infinity) falls back to `defaultTtlMs` —
-the component can never produce a non-expiring token. Defaults:
-`scope = defaultScope`, `ttlMs = defaultTtlMs`. An empty `scope` or
-`resourceRef` is rejected, as is a `maxTtlMs` that is not greater than 0 (a NaN
-ceiling would otherwise produce a token that never expires), and a `tokenHash`
-that already exists.
+`[MIN_TTL_MS, maxTtlMs]`, so a minted token lives at least 60 000 ms. The
+ceiling wins: a `maxTtlMs` below 60 000 ms caps the lifetime below that floor. A
+non-finite `ttlMs` (NaN / Infinity) falls back to `defaultTtlMs` — the component
+can never produce a non-expiring token. Defaults: `scope = defaultScope`,
+`ttlMs = defaultTtlMs`. An empty `scope` or `resourceRef` is rejected, as is a
+`maxTtlMs` that is not greater than 0 (a NaN ceiling would otherwise produce a
+token that never expires), and a `tokenHash` that already exists.
 
 **Hash guard (server-side):** the component validates the `tokenHash` it
 receives. A `tokenHash` shorter than 64 characters or containing
 non-lowercase-hex characters is rejected with
 `ConvexError({ code: "INVALID_TOKEN_HASH" })`. This prevents a misconfigured or
 adversarial direct caller from persisting a raw token or garbage string. The
-client's `hashToken` always produces a valid digest; this guard hardens the
-component's trust boundary for direct callers.
+`Tokens` client always sends a valid digest; this guard hardens the component's
+trust boundary for direct callers.
 
 ### `revoke(ctx, rawToken, scope?) → boolean`
 
