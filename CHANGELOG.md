@@ -17,10 +17,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with scope `""`, so pass that until they expire, or reissue them.
 - Inputs that 0.1.0 accepted but that produced broken tokens or results now
   throw a `ConvexError` (see Fixed): `maxTtlMs` NaN, zero or negative
-  (`INVALID_TTL`), a duplicate `tokenHash` (`DUPLICATE_TOKEN_HASH`), a NaN,
-  negative or fractional `list` `limit` (`INVALID_LIMIT`), a NaN `prune`
-  `before` (`INVALID_BEFORE`) and a `tokenBytes` that is not an integer >= 1
-  (`INVALID_TOKEN_BYTES`).
+  (`INVALID_TTL`), a duplicate `tokenHash` (`DUPLICATE_TOKEN_HASH`), a NaN
+  `prune` `before` (`INVALID_BEFORE`) and a `tokenBytes` of `0`, NaN or a
+  fraction (`INVALID_TOKEN_BYTES`).
+- Inputs that 0.1.0 already rejected with an uncoded `TypeError` or `RangeError`
+  now throw a coded `ConvexError`: a NaN, negative or fractional `list` `limit`
+  (`INVALID_LIMIT`) and a negative or infinite `tokenBytes`
+  (`INVALID_TOKEN_BYTES`). `limit: Infinity`, which 0.1.0 treated as 1000, is
+  now rejected with `INVALID_LIMIT`.
 - `^0.1.0` ranges do not pick up 0.2.0; update the range to `^0.2.0` to get
   these fixes.
 
