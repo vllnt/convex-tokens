@@ -181,10 +181,10 @@ describe("tokens — list / getMetadata (safe management surface)", () => {
     await t.mutation(api.example.mint, { resourceRef: "b" });
     const onlyA = await t.query(api.example.list, { resourceRef: "a" });
     expect(onlyA).toHaveLength(1);
-    expect(onlyA[0].resourceRef).toBe("a");
+    expect(onlyA[0]?.resourceRef).toBe("a");
     await t.mutation(api.example.revoke, { token });
     const afterRevoke = await t.query(api.example.list, { resourceRef: "a" });
-    expect(afterRevoke[0].revoked).toBe(true);
+    expect(afterRevoke[0]?.revoked).toBe(true);
   });
 
   test("list honours an explicit limit", async () => {
