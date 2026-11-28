@@ -10,9 +10,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Breaking:** `mint` rejects an empty `scope` (`INVALID_SCOPE`) and an empty
   `resourceRef` (`INVALID_RESOURCE_REF`); 0.1.0 accepted both. A client built
-  with `defaultScope: ""` now throws on every mint.
+  with `defaultScope: ""` now throws on every mint that omits `scope`.
   Migration: pass a non-empty `scope` and either a non-empty `resourceRef` or
-  none, and set `defaultScope` to a non-empty string.
+  none, and set `defaultScope` to a non-empty string. Tokens already minted with
+  scope `""` keep it: `validate` and `revoke` still find them only when called
+  with scope `""`, so pass that until they expire, or reissue them.
+- Inputs that 0.1.0 accepted but that produced broken tokens or results now
+  throw a `ConvexError` (see Fixed): `maxTtlMs` NaN, zero or negative
+  (`INVALID_TTL`), a duplicate `tokenHash` (`DUPLICATE_TOKEN_HASH`), a NaN,
+  negative or fractional `list` `limit` (`INVALID_LIMIT`), a NaN `prune`
+  `before` (`INVALID_BEFORE`) and a `tokenBytes` that is not an integer >= 1
+  (`INVALID_TOKEN_BYTES`).
+- `^0.1.0` ranges do not pick up 0.2.0; update the range to `^0.2.0` to get
+  these fixes.
 
 ### Fixed
 
@@ -29,8 +39,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (explicit `.js` relative imports, Vite client types referenced).
 - The published tarball no longer includes test files.
 - `register` from `@vllnt/convex-tokens/test` accepts the host app's own schema;
-  `register(convexTest(hostSchema, modules))` failed to type-check (TS2345)
-  for any host schema other than the component's.
+  `register(convexTest(hostSchema, modules))` failed to type-check (TS2345) for
+  any host schema other than the component's.
 - The `INVALID_TOKEN_HASH` message points at the `Tokens` client, which
   generates and hashes the token, instead of a client hashing method that does
   not exist.
