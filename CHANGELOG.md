@@ -22,6 +22,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `@vllnt/convex-tokens/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
 - The published tarball no longer includes test files.
+- `register` from `@vllnt/convex-tokens/test` accepts the host app's own schema;
+  `register(convexTest(hostSchema, modules))` failed to type-check (TS2345)
+  for any host schema other than the component's.
+- The `INVALID_TOKEN_HASH` message points at the `Tokens` client, which
+  generates and hashes the token, instead of a client hashing method that does
+  not exist.
 
 ### Documentation
 
@@ -32,6 +38,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs/API.md` lists the entry points and exports.
 - Document the error codes, the single-use pattern (`revoke` returns `true` for
   exactly one concurrent caller) and `/test` usage in the consuming app.
+- The `mint` and `MIN_TTL_MS` code comments state the documented TTL rule: the
+  60 000 ms floor applies unless `maxTtlMs` is lower, in which case the ceiling
+  wins. They claimed the floor always held.
 
 ## [0.1.0] - 2026-09-01
 
