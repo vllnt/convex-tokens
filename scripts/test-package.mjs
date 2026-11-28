@@ -58,7 +58,9 @@ try {
       type: "module",
     }),
     // pnpm 11 reads the build-script policy from the workspace file, pnpm 10 from package.json.
-    "pnpm-workspace.yaml": "allowBuilds:\n  esbuild: false\n",
+    // No lockfile here: the repo's 7-day minimumReleaseAge keeps floating transitive deps off
+    // fresh releases. pnpm 10 and 11 both read it from the workspace file only.
+    "pnpm-workspace.yaml": "allowBuilds:\n  esbuild: false\nminimumReleaseAge: 10080\n",
   });
   // Low end of the peer range (convex ^1.45.0, react >=18) and of the test toolchain.
   run("pnpm", [

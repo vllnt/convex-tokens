@@ -4,17 +4,23 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - Unreleased
+## [0.2.0] - Unreleased
+
+### Changed
+
+- **Breaking:** `mint` rejects an empty `scope` (`INVALID_SCOPE`) and an empty
+  `resourceRef` (`INVALID_RESOURCE_REF`); 0.1.0 accepted both. A client built
+  with `defaultScope: ""` now throws on every mint.
+  Migration: pass a non-empty `scope` and either a non-empty `resourceRef` or
+  none, and set `defaultScope` to a non-empty string.
 
 ### Fixed
 
 - `mint` rejects a `maxTtlMs` that is NaN, zero or negative with
   `ConvexError({ code: "INVALID_TTL" })`; a NaN ceiling produced a NaN
   `expiresAt`, i.e. a token that never expired.
-- `mint` rejects an empty `scope` (`INVALID_SCOPE`), an empty `resourceRef`
-  (`INVALID_RESOURCE_REF`) and a `tokenHash` that already exists
-  (`DUPLICATE_TOKEN_HASH`; a duplicate made `validate` and `revoke` throw for
-  it).
+- `mint` rejects a `tokenHash` that already exists (`DUPLICATE_TOKEN_HASH`; a
+  duplicate made `validate` and `revoke` throw for it).
 - `list` rejects a NaN, negative or fractional `limit` (`INVALID_LIMIT`);
   `prune` rejects a NaN `before` (`INVALID_BEFORE`).
 - `tokenBytes` below 1 or not an integer is rejected (`INVALID_TOKEN_BYTES`);
