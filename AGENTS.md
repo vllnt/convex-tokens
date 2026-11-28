@@ -70,8 +70,9 @@ The component never sees the raw token, never authenticates, and never reads hos
 - **`validate` returns a discriminated union.** `{ valid: true, resourceRef? }` or
   `{ valid: false }`. The failed branch structurally cannot carry `resourceRef` — narrowing on
   `result.valid` is the only safe access pattern.
-- **`list` hard-caps at 1000 rows** (`LIST_LIMIT_MAX`). Values above the ceiling are silently
-  clamped. Management surface never returns `tokenHash`.
+- **`list` hard-caps at 1000 rows** (`LIST_LIMIT_MAX`). Integers above the ceiling are silently
+  clamped; NaN, `Infinity`, fractions and negatives throw `INVALID_LIMIT`. Management surface
+  never returns `tokenHash`.
 - **No-leak React surface.** The `./react` entry exposes only token metadata (id, scope,
   resourceRef, revoked, expiresAt, createdAt). No hook returns a raw token or hash. Minting is
   always a host-wrapped mutation — the raw value is returned exactly once server-side and is
@@ -84,16 +85,20 @@ The component never sees the raw token, never authenticates, and never reads hos
 - Host data via typed generics / host-supplied validator keyed by an opaque ref — never `v.any()` dumps.
 - 100% test coverage is BLOCKING (`vitest.config.mts` thresholds).
 - Runtime deps: only official `@convex-dev/*` + `@vllnt/*`.
+- README, `llms.txt` and `docs/` follow the shared docs contract in
+  `scripts/check-documentation.mjs`, run by `pnpm test:package` on the installed tarball. Every
+  README `ts`/`tsx` example type-checks against the packed package; the Testing example also runs
+  under Vitest.
 
 ## Docs sync
 
 | Changed | Update in same commit |
 |---------|----------------------|
-| Public API (client methods, args, returns, error codes) | README API table, `docs/API.md`, `llms.txt` (curated, edit by hand) |
-| Config options / defaults | README config section, `docs/API.md` |
-| Schema / tables / indexes | README Architecture, `docs/API.md` |
-| `convex@` peer dep version | `llms.txt` context line, README Installation peer dep note |
-| New capability / `./react` hook | README React section, `llms.txt` |
+| Public API (client methods, args, returns, error codes) | README API and Errors and fixes tables, `docs/API.md`, `llms.txt` (curated, edit by hand) |
+| Config options / defaults | README Limits and gotchas, `docs/API.md` |
+| Schema / tables / indexes | `docs/API.md` Schema |
+| `convex@` peer dep version | `llms.txt` context line, README Compatibility |
+| New capability / `./react` hook | README API table and Common tasks, `llms.txt` |
 | Version bump | `CHANGELOG.md`, version badges |
 
 Run `pnpm generate:llms` (it validates the `llms.txt` links) after any change above. `pnpm lint`

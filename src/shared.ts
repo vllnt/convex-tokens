@@ -46,8 +46,8 @@ export type ResourceRef = string;
 /**
  * Hex digest of `raw` under `algo` (default SHA-256). The component stores only
  * this hash — the raw token is hashed by the client and never travels to or
- * rests in the component. Uses Web Crypto (`crypto.subtle`), a global in
- * edge-runtime and Node >=18.
+ * rests in the component. Uses Web Crypto (`crypto.subtle`), a global in the
+ * Convex runtime, edge-runtime and Node.js 20 or later.
  *
  * @param raw - The raw secret token to hash.
  * @param algo - Digest algorithm; fixed per mount. Default `"SHA-256"`.

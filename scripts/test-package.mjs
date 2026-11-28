@@ -1,6 +1,8 @@
 // Installs the packed tarball in a throwaway consumer on the low end of the peer
-// range, then imports every entry point, type-checks a consumer and runs one
-// convex-test test against the installed package. Run after `pnpm build`.
+// range, checks the shipped docs (scripts/check-documentation.mjs), then
+// imports every entry point, type-checks the README examples and a consumer, and
+// runs the README's test example against the installed package. Run after
+// `pnpm build`.
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
@@ -13,6 +15,12 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
+
+import {
+  checkDocumentation,
+  convexHost,
+  writeHost,
+} from "./check-documentation.mjs";
 
 const root = process.cwd();
 const { name, version } = JSON.parse(readFileSync("package.json", "utf8"));
@@ -98,58 +106,16 @@ if (typeof Tokens !== "function" || typeof useTokens !== "function" || !config |
 `,
   ]);
 
-  // A host app: its own table beside the mounted component, wrapped by the client.
+  // Docs contract on what consumers receive, then the README examples run in a
+  // stub Convex host typed from those examples.
+  const examples = checkDocumentation(installed, temporary);
+  const readmeFiles = writeHost(
+    temporary,
+    convexHost(installed, examples),
+    examples,
+  );
   write({
-    "convex/schema.ts": `
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
-export default defineSchema({ notes: defineTable({ body: v.string() }) });
-`,
-    "convex/convex.config.ts": `
-import tokens from "${name}/convex.config.js";
-import { defineApp } from "convex/server";
-const app = defineApp();
-app.use(tokens);
-export default app;
-`,
-    "convex/_generated/api.ts": `
-import type { ComponentApi } from "${name}/_generated/component.js";
-import { anyApi, componentsGeneric } from "convex/server";
-export const api = anyApi;
-export const components = componentsGeneric() as unknown as { tokens: ComponentApi<"tokens"> };
-`,
-    "convex/tokens.ts": `
-import { Tokens } from "${name}";
-import { mutationGeneric, queryGeneric } from "convex/server";
-import { v } from "convex/values";
-import { components } from "./_generated/api.js";
-const tokens = new Tokens(components.tokens);
-export const mint = mutationGeneric({
-  args: { resourceRef: v.string() },
-  handler: async (ctx, args) => await tokens.mint(ctx, { resourceRef: args.resourceRef }),
-});
-export const validate = queryGeneric({
-  args: { token: v.string() },
-  handler: async (ctx, args) => await tokens.validate(ctx, args.token),
-});
-`,
-    "convex/tokens.test.ts": `
-/// <reference types="vite/client" />
-import { register } from "${name}/test";
-import { convexTest } from "convex-test";
-import { expect, test } from "vitest";
-import { api } from "./_generated/api.js";
-import schema from "./schema.js";
-
-test("the installed package mounts beside a host table, mints and validates", async () => {
-  const t = convexTest(schema, import.meta.glob("./**/*.ts"));
-  register(t);
-  await t.run(async (ctx) => { await ctx.db.insert("notes", { body: "host row" }); });
-  const { token } = await t.mutation(api.tokens.mint, { resourceRef: "user_1" });
-  expect(await t.query(api.tokens.validate, { token })).toEqual({ valid: true, resourceRef: "user_1" });
-  expect(await t.query(api.tokens.validate, { token: "wrong" })).toEqual({ valid: false });
-});
-`,
+    // Types the export surface the README does not exercise.
     "consumer.tsx": `
 import { Tokens, type TokenMetadata, type ValidateResult } from "${name}";
 import type { ComponentApi } from "${name}/_generated/component";
@@ -165,22 +131,23 @@ export function Count() { return <p>{useTokens(listRef, { resourceRef: "u" })?.l
 export const isValid = (result: ValidateResult) => (result.valid ? result.resourceRef : undefined);
 void client;
 `,
-    "vitest.config.mts": `
-import { defineConfig } from "vitest/config";
-export default defineConfig({
-  test: { environment: "edge-runtime", server: { deps: { inline: ["convex-test"] } } },
-});
+    // register accepts a host schema with its own tables and a custom mount name.
+    "registration.ts": `
+import { register } from "${name}/test";
+import { convexTest } from "convex-test";
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+const host = defineSchema({ notes: defineTable({ body: v.string() }) });
+register(convexTest(host, {}), "custom");
 `,
   });
-  const hostFiles = [
-    "consumer.tsx",
-    "convex/convex.config.ts",
-    "convex/tokens.ts",
-    "convex/tokens.test.ts",
-  ];
-  // `./test` ships TypeScript source, so it must compile for Bundler and NodeNext consumers.
-  typecheck("ESNext", hostFiles, ["--types", "vite/client,node"]);
-  typecheck("NodeNext", ["convex/tokens.test.ts"], ["--types", "vite/client,node"]);
+  typecheck("ESNext", [...readmeFiles, "consumer.tsx", "registration.ts"], [
+    "--types",
+    "vite/client,node",
+  ]);
+  // `./test` ships TypeScript source, so it must also compile for NodeNext consumers.
+  typecheck("NodeNext", ["registration.ts"], ["--types", "vite/client,node"]);
+  // The README's own vitest.config.mts runs its test example.
   run("pnpm", ["exec", "vitest", "run"]);
   console.log(`OK    package test: ${name}@${version} installs, imports, type-checks and runs`);
 } finally {

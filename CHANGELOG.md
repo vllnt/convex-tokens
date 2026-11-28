@@ -61,6 +61,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The `mint` and `MIN_TTL_MS` code comments state the documented TTL rule: the
   60 000 ms floor applies unless `maxTtlMs` is lower, in which case the ceiling
   wins. They claimed the floor always held.
+- The README follows the section layout shared by the @vllnt packages, with
+  tables of every export and every error code, and `docs/API.md` has one heading
+  per export and method. `llms.txt`, the TSDoc and the `package.json`
+  description and keywords match; `pnpm test:package` checks all of it on the
+  packed tarball. `docs/API.md` no longer says every `list` limit above 1000 is
+  clamped: `Infinity` and fractions throw `INVALID_LIMIT`.
 
 ## [0.1.0] - 2026-09-01
 
