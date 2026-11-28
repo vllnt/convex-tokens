@@ -1,6 +1,7 @@
+import { ConvexError } from "convex/values";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { api } from "./_generated/api";
+import { api, components } from "./_generated/api";
 import schema from "./schema";
 import { register } from "../../src/test";
 
@@ -430,5 +431,68 @@ describe("tokens — list ceiling and zero-limit (MED)", () => {
     await t.mutation(api.example.mint, { resourceRef: "a" });
     const rows = await t.query(api.example.list, { limit: 0 });
     expect(rows).toEqual([]);
+  });
+});
+
+describe("tokens — behavior the README documents", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("a host catching a component ConvexError reads data.code", async () => {
+    const t = setup();
+    const data = await t.run(async (ctx) => {
+      try {
+        await ctx.runMutation(components.tokens.mutations.mint, {
+          tokenHash: "a".repeat(64),
+          scope: "",
+          ttlMs: 60_000,
+          defaultTtlMs: 60_000,
+          maxTtlMs: 120_000,
+        });
+        return null;
+      } catch (error) {
+        return error instanceof ConvexError ? (error.data as unknown) : null;
+      }
+    });
+    expect(data).toMatchObject({ code: "INVALID_SCOPE" });
+  });
+
+  test("list includes revoked and expired-but-unpruned tokens", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const t = setup();
+    const revoked = await t.mutation(api.example.mint, { resourceRef: "u" });
+    await t.mutation(api.example.revoke, { token: revoked.token });
+    const expired = await t.mutation(api.example.mint, {
+      resourceRef: "u",
+      ttlMs: 60_000,
+    });
+    vi.setSystemTime(new Date("2026-01-01T00:02:00.000Z"));
+    expect(await t.query(api.example.validate, { token: expired.token })).toEqual(
+      { valid: false },
+    );
+    const rows = await t.query(api.example.list, { resourceRef: "u" });
+    expect(rows.map((row) => row.id)).toEqual([revoked.id, expired.id]);
+  });
+
+  test("revoke does not check expiry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, { ttlMs: 60_000 });
+    vi.setSystemTime(new Date("2026-01-01T00:02:00.000Z"));
+    expect(await t.mutation(api.example.revoke, { token })).toBe(true);
+  });
+
+  test("prune with a future before deletes a token that is still valid", async () => {
+    const t = setup();
+    const { token } = await t.mutation(api.example.mint, { ttlMs: 60_000 });
+    expect(
+      await t.mutation(api.example.prune, { before: Date.now() + 120_000 }),
+    ).toBe(1);
+    expect(await t.query(api.example.validate, { token })).toEqual({
+      valid: false,
+    });
   });
 });

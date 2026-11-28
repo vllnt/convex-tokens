@@ -1,7 +1,7 @@
 {
   "name": "@vllnt/convex-tokens",
   "version": "0.2.0",
-  "description": "Hashed-secret token primitive with mint-once, TTL, revoke and scope, as a Convex component",
+  "description": "TypeScript Convex component for expiring, revocable secret tokens stored only as SHA-256 or SHA-512 hashes: mint once, validate, revoke, scope, prune.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.9",
@@ -115,11 +115,14 @@
   "keywords": [
     "convex",
     "convex-component",
+    "typescript",
     "tokens",
+    "secret-tokens",
     "hashed-tokens",
+    "sha-256",
+    "token-expiry",
     "token-revocation",
-    "ttl",
-    "sha-256"
+    "single-use-tokens"
   ],
   "pnpm": {
     "overrides": {

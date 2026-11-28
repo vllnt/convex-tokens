@@ -1,36 +1,72 @@
 # @vllnt/convex-tokens
 
-> Hashed-secret token primitive with mint-once, TTL, revoke and scope, as a Convex component
+> TypeScript Convex component for expiring, revocable secret tokens stored only as SHA-256 or SHA-512 hashes: mint once, validate, revoke, scope, prune.
 
-`@vllnt/convex-tokens` is a publishable Convex component. It targets `convex@^1.45.0`.
-It stores one sandboxed table - `tokens` - holding only the digest of each token (never the raw secret), plus `scope`, an optional opaque `resourceRef`, a `revoked` flag, `expiresAt`, and `createdAt`. The client generates the raw token and hashes it with Web Crypto (SHA-256 by default, SHA-512 configurable per mount) before any call, so the component never sees the secret; minting returns the raw value exactly once. Time is server-sourced: the component computes `expiresAt` from a requested `ttlMs` (clamped server-side into a min/max range; a non-finite `ttlMs` falls back to the default) and reads `Date.now()` inside `validate`, so expiry cannot be forged by a client clock. The `mint` mutation enforces a server-side hash guard: it rejects any `tokenHash` that is not a lowercase hex string of at least 64 characters, throwing `ConvexError({ code: "INVALID_TOKEN_HASH" })`. `mint` also rejects an empty `scope` or `resourceRef`, a non-positive or NaN `maxTtlMs`, and a duplicate hash; `list` rejects a NaN, negative or fractional `limit`; `prune` rejects a NaN `before`; the client rejects a `tokenBytes` that is not an integer >= 1 (all `ConvexError` codes, listed in docs/API.md). The `validate` result is a discriminated union: `{ valid: true, resourceRef? }` or `{ valid: false }` (the failed branch structurally cannot carry `resourceRef`). `revoke` uses a transition contract: returns `true` only if this call transitioned the token from active to revoked; a second call returns `false`. The `list` query caps results at 1000 rows. Tokens can be revoked; a built-in daily cron prunes expired and stale-revoked rows in bounded self-rescheduling batches, and `prune` is also callable directly. A safe management surface (`list`, `getMetadata`) returns token metadata - never the hash. The host owns the resource, auth, and meaning; the component owns only the hash, lifecycle, and expiry.
+Install `@vllnt/convex-tokens` (unreleased builds from `main` use the `canary`
+dist-tag). Peer dependency `convex@^1.45.0`; optional `react@>=18` for the
+`./react` entry. Mount it with `app.use(tokens)` from
+`@vllnt/convex-tokens/convex.config` and call it through
+`new Tokens(components.tokens, options?)` from host queries, mutations and
+actions. Methods: `mint`, `validate`, `revoke`, `list`, `getMetadata`, `prune`.
+The client generates the raw token and hashes it with Web Crypto before any
+call; the component stores only the digest, and `mint` returns the raw token
+once. `validate` returns `{ valid: true, resourceRef? }` or `{ valid: false }`.
+`revoke` returns `true` only for the call that moved the token to revoked, so
+`validate` then `revoke` in one mutation redeems a token once. Every token
+expires: `ttlMs` is clamped server-side into 60 000 ms to `maxTtlMs` (default
+30 days; the ceiling wins when lower), default 24 hours. `list` returns metadata
+only (never the hash), default 100 rows; integer limits above 1000 are clamped
+to 1000, and non-integers (including `Infinity`), NaN and negatives throw
+`INVALID_LIMIT`. `prune` deletes up to 256 expired tokens per call, and a daily
+cron deletes expired tokens and revoked tokens created more than 24 hours ago.
+Invalid input throws `ConvexError` with `data.code` `INVALID_SCOPE`,
+`INVALID_RESOURCE_REF`, `INVALID_TTL`, `INVALID_TOKEN_BYTES`,
+`INVALID_TOKEN_HASH`, `DUPLICATE_TOKEN_HASH`, `INVALID_LIMIT` or
+`INVALID_BEFORE`. The host owns auth and the meaning of `resourceRef`; there is
+no rotation, usage count or revoke by id.
+
+## When to use
+
+- Use it when a link or one-off action needs a secret that expires, such as an
+  email check, a password reset or a share link, and only its hash may be kept.
+- Use it when a token must be revocable before it expires.
+- Use it when a token must be redeemed at most once, even under concurrent calls.
+- Do not use it when customers manage long-lived keys, rotate them or need usage
+  counts: use `@vllnt/convex-api-keys`.
+- Do not use it when you need a full invite → accept flow with roles: use
+  `@vllnt/convex-invitations`.
 
 ## For coding agents
 
-The npm package bundles these docs at `node_modules/@vllnt/convex-tokens/`
-(`llms.txt`, `README.md`, `docs/API.md`, `CHANGELOG.md`, plus the TypeScript
-source in `src/`). They match the installed version. Read them before writing
-code against this package.
+The docs are bundled in the package at `node_modules/@vllnt/convex-tokens/` and
+match the installed version. Read them, and the shipped `src/`, before writing
+code. The links below to `./` paths are files inside the installed package.
 
 ## Docs
 
-- [README](./README.md): Project overview, installation, usage examples, architecture
-- [API Reference](./docs/API.md): Entry points, exports, public class methods, return shapes, input validation, error codes
+- [README](./README.md): Install, quick start, common tasks, limits
+- [API reference](./docs/API.md): Every export, signature, return shape, default, schema and validation rule
+- [Errors and fixes](./README.md#errors-and-fixes): Every error code, its cause and the fix
 - [Changelog](./CHANGELOG.md): Version history and release notes
-- [License](./LICENSE): MIT license
+- [Contributing](https://github.com/vllnt/convex-tokens/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
 
 ## Examples
 
 - [Example component wrapper](https://github.com/vllnt/convex-tokens/blob/main/example/convex/example.ts): Host-app wrapper functions
-- [Example tests](https://github.com/vllnt/convex-tokens/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+- [Example tests](https://github.com/vllnt/convex-tokens/blob/main/example/convex/example.test.ts): Simulated usage coverage with `convex-test`
 
 ## Optional
 
-- [Contributing](https://github.com/vllnt/convex-tokens/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
-- [AGENTS](https://github.com/vllnt/convex-tokens/blob/main/AGENTS.md): Agent instructions for contributors to this repository (repository only)
+- [AGENTS](https://github.com/vllnt/convex-tokens/blob/main/AGENTS.md): Contributor instructions for working in this repository (repository only)
 - [Security Policy](https://github.com/vllnt/convex-tokens/blob/main/SECURITY.md): Vulnerability reporting policy
 - [Code of Conduct](https://github.com/vllnt/convex-tokens/blob/main/CODE_OF_CONDUCT.md): Community participation guidelines
+- [License](./LICENSE): MIT license
 
 ## Ecosystem
 
-- [vllnt oss](https://oss.vllnt.com/llms.txt): Index of the other vllnt open-source packages
+- [Package page](https://oss.vllnt.com/packages/convex-tokens)
+- [Release feed](https://oss.vllnt.com/packages/convex-tokens/rss.xml)
+- [All @vllnt packages](https://oss.vllnt.com/llms.txt)
+- [Search vllnt packages and docs](https://index.vllnt.com)
+- [vllnt](https://vllnt.com/llms.txt)
+- [Author](https://bntvllnt.com)

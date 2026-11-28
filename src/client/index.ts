@@ -105,7 +105,10 @@ export interface ListOptions {
   scope?: string;
   /** Restrict to a single opaque host reference. */
   resourceRef?: string;
-  /** Max rows to return. Default 100 (component-side). */
+  /**
+   * Max rows to return: a non-negative integer, default 100. Integers above
+   * 1000 are clamped to 1000; anything else throws `INVALID_LIMIT`.
+   */
   limit?: number;
 }
 
@@ -115,6 +118,8 @@ export interface ListOptions {
  * The raw token is generated and hashed here — the component only ever sees the
  * hash, never the secret. Time is sourced server-side: the client never supplies
  * `now` or an `expiresAt`.
+ *
+ * @see https://oss.vllnt.com/packages/convex-tokens
  */
 export class Tokens {
   private readonly defaultScope: string;
@@ -123,6 +128,11 @@ export class Tokens {
   private readonly tokenBytes: number;
   private readonly hashAlgo: HashAlgo;
 
+  /**
+   * @param component - The mounted component, `components.tokens` (or the name
+   *   passed to `app.use`).
+   * @param options - Client defaults; see {@link TokensOptions}.
+   */
   constructor(
     private readonly component: TokensComponent,
     options: TokensOptions = {},
@@ -175,7 +185,11 @@ export class Tokens {
     });
   }
 
-  /** Revoke `rawToken`. Returns `true` if a matching token was revoked. */
+  /**
+   * Revoke `rawToken`. Returns `true` only if this call moved the token from
+   * active to revoked; `false` if it is unknown, in another scope or already
+   * revoked. It does not check expiry.
+   */
   async revoke(
     ctx: RunMutationCtx,
     rawToken: string,
@@ -209,7 +223,11 @@ export class Tokens {
     return ctx.runQuery(this.component.queries.getMetadata, { id });
   }
 
-  /** Delete every token that expired before `before` (default now). Returns the count. */
+  /**
+   * Delete up to 256 tokens whose `expiresAt` is before `before` (default now),
+   * revoked or not. Returns the number deleted by this call; call again until it
+   * returns 0.
+   */
   prune(ctx: RunMutationCtx, before?: number): Promise<number> {
     return ctx.runMutation(this.component.mutations.prune, {
       before: before ?? Date.now(),
