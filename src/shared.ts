@@ -90,7 +90,7 @@ export function generateToken(bytes = DEFAULT_TOKEN_BYTES): string {
 /**
  * Clamp `ttlMs` into `[minMs, maxMs]`. A non-finite `ttlMs` (NaN / Infinity)
  * falls back to `fallbackMs`; a non-finite `fallbackMs` falls back to `minMs`.
- * The result is therefore finite for any non-NaN `maxMs` (`mint` rejects a NaN
+ * The result is finite whenever `maxMs > 0` (`mint` rejects any other
  * `maxTtlMs`), so a malformed request can never produce a non-finite
  * `expiresAt`. It is >= `minMs` unless `maxMs` is lower: the ceiling wins.
  *
