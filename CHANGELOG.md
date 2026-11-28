@@ -4,17 +4,37 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - Unreleased
+## [0.2.0] - Unreleased
+
+### Changed
+
+- **Breaking:** `mint` rejects an empty `scope` (`INVALID_SCOPE`) and an empty
+  `resourceRef` (`INVALID_RESOURCE_REF`); 0.1.0 accepted both. A client built
+  with `defaultScope: ""` now throws on every mint that omits `scope`.
+  Migration: pass a non-empty `scope` and either a non-empty `resourceRef` or
+  none, and set `defaultScope` to a non-empty string. Tokens already minted with
+  scope `""` keep it: `validate` and `revoke` still find them only when called
+  with scope `""`, so pass that until they expire, or reissue them.
+- Inputs that 0.1.0 accepted but that produced broken tokens or results now
+  throw a `ConvexError` (see Fixed): `maxTtlMs` NaN, zero or negative
+  (`INVALID_TTL`), a duplicate `tokenHash` (`DUPLICATE_TOKEN_HASH`), a NaN
+  `prune` `before` (`INVALID_BEFORE`) and a `tokenBytes` of `0`, NaN or a
+  fraction (`INVALID_TOKEN_BYTES`).
+- Inputs that 0.1.0 already rejected with an uncoded `TypeError` or `RangeError`
+  now throw a coded `ConvexError`: a NaN, negative or fractional `list` `limit`
+  (`INVALID_LIMIT`) and a negative or infinite `tokenBytes`
+  (`INVALID_TOKEN_BYTES`). `limit: Infinity`, which 0.1.0 treated as 1000, is
+  now rejected with `INVALID_LIMIT`.
+- `^0.1.0` ranges do not pick up 0.2.0; update the range to `^0.2.0` to get
+  these fixes.
 
 ### Fixed
 
 - `mint` rejects a `maxTtlMs` that is NaN, zero or negative with
   `ConvexError({ code: "INVALID_TTL" })`; a NaN ceiling produced a NaN
   `expiresAt`, i.e. a token that never expired.
-- `mint` rejects an empty `scope` (`INVALID_SCOPE`), an empty `resourceRef`
-  (`INVALID_RESOURCE_REF`) and a `tokenHash` that already exists
-  (`DUPLICATE_TOKEN_HASH`; a duplicate made `validate` and `revoke` throw for
-  it).
+- `mint` rejects a `tokenHash` that already exists (`DUPLICATE_TOKEN_HASH`; a
+  duplicate made `validate` and `revoke` throw for it).
 - `list` rejects a NaN, negative or fractional `limit` (`INVALID_LIMIT`);
   `prune` rejects a NaN `before` (`INVALID_BEFORE`).
 - `tokenBytes` below 1 or not an integer is rejected (`INVALID_TOKEN_BYTES`);
@@ -23,8 +43,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (explicit `.js` relative imports, Vite client types referenced).
 - The published tarball no longer includes test files.
 - `register` from `@vllnt/convex-tokens/test` accepts the host app's own schema;
-  `register(convexTest(hostSchema, modules))` failed to type-check (TS2345)
-  for any host schema other than the component's.
+  `register(convexTest(hostSchema, modules))` failed to type-check (TS2345) for
+  any host schema other than the component's.
 - The `INVALID_TOKEN_HASH` message points at the `Tokens` client, which
   generates and hashes the token, instead of a client hashing method that does
   not exist.
