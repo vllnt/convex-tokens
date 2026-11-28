@@ -255,6 +255,9 @@ expired token gives `{ valid: false }`, `false` or `null`.
 
 ## Limits and gotchas
 
+The constants named below (`MIN_TTL_MS`, `LIST_LIMIT_MAX`, `PRUNE_BATCH`) are
+not exported from any entry point; their values are given here.
+
 - TTL: `ttlMs` defaults to `defaultTtlMs` (24 hours) and is clamped server-side
   into `[MIN_TTL_MS, maxTtlMs]`. `MIN_TTL_MS` is 60 000 ms; `maxTtlMs` defaults
   to 30 days. The ceiling wins when `maxTtlMs` is lower than 60 000 ms.
@@ -295,12 +298,14 @@ expired token gives `{ valid: false }`, `false` or `null`.
 - Peer dependencies: `convex@^1.45.0`, and `react@>=18` (optional, needed only
   for `@vllnt/convex-tokens/react`). CI runs the unit tests on the locked convex
   version (1.51.0). It installs the packed package with convex 1.45.0 and React
-  18.3.1, type-checks and imports every entry point, and runs the README
-  examples.
+  18.3.1, imports every entry point, type-checks every README example and runs
+  the Testing example.
 - ES modules only. `package.json` declares Node.js `>=18`, but convex 1.45 to
   1.48 require Node.js 20 and convex 1.49 or later require Node.js 22.
-- The `Tokens` client runs in Convex queries, mutations and actions. It uses the
-  Web Crypto globals `crypto.subtle` and `crypto.getRandomValues`.
+- `validate`, `list` and `getMetadata` run in Convex queries, mutations and
+  actions. `mint`, `revoke` and `prune` call `runMutation`, so they need a
+  mutation or an action. The client uses the Web Crypto globals `crypto.subtle`
+  and `crypto.getRandomValues`.
 - `@vllnt/convex-tokens/test` needs `convex-test`, `vitest`, `vite` and
   `@edge-runtime/vm`, with the Vitest config shown under Testing.
 
@@ -352,7 +357,8 @@ Pass the mount name as the second argument when you used
 
 This repository's own tests use the simulated `convex-test` runtime
 (`pnpm test:coverage`, 100% coverage enforced). `pnpm test:package` installs
-the packed tarball, checks these docs and runs the README examples against it.
+the packed tarball, checks these docs, type-checks every README example against
+it and runs the Testing example.
 
 ## Security
 

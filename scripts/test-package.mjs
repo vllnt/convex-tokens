@@ -107,14 +107,42 @@ if (typeof Tokens !== "function" || typeof useTokens !== "function" || !config |
   ]);
 
   // Docs contract on what consumers receive, then the README examples run in a
-  // stub Convex host typed from those examples.
+  // stub Convex host typed from those examples. The host schema has a table of
+  // its own, so the README test mounts the component beside real host data.
   const examples = checkDocumentation(installed, temporary);
   const readmeFiles = writeHost(
     temporary,
-    convexHost(installed, examples),
+    {
+      ...convexHost(installed, examples),
+      "convex/schema.ts": `
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+export default defineSchema({ notes: defineTable({ body: v.string() }) });
+`,
+    },
     examples,
   );
   write({
+    // register(t) at runtime beside a host table, through the README's functions.
+    "convex/host.test.ts": `
+/// <reference types="vite/client" />
+import { register } from "${name}/test";
+import { convexTest } from "convex-test";
+import { expect, test } from "vitest";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("the installed package mounts beside a host table, mints and validates", async () => {
+  const t = convexTest(schema, import.meta.glob("./**/*.ts"));
+  register(t);
+  await t.run(async (ctx) => { await ctx.db.insert("notes", { body: "host row" }); });
+  const { token } = await t.withIdentity({ tokenIdentifier: "user_1" }).mutation(api.tokens.issue, {});
+  expect(await t.query(api.tokens.check, { token })).toEqual({ valid: true, resourceRef: "user_1" });
+  expect(await t.query(api.tokens.check, { token: "wrong" })).toEqual({ valid: false });
+  const notes = await t.run(async (ctx) => await ctx.db.query("notes").collect());
+  expect(notes.map((note) => note.body)).toEqual(["host row"]);
+});
+`,
     // Types the export surface the README does not exercise.
     "consumer.tsx": `
 import { Tokens, type TokenMetadata, type ValidateResult } from "${name}";
@@ -141,13 +169,17 @@ const host = defineSchema({ notes: defineTable({ body: v.string() }) });
 register(convexTest(host, {}), "custom");
 `,
   });
-  typecheck("ESNext", [...readmeFiles, "consumer.tsx", "registration.ts"], [
-    "--types",
-    "vite/client,node",
-  ]);
+  typecheck(
+    "ESNext",
+    [...readmeFiles, "convex/host.test.ts", "consumer.tsx", "registration.ts"],
+    [
+      "--types",
+      "vite/client,node",
+    ],
+  );
   // `./test` ships TypeScript source, so it must also compile for NodeNext consumers.
   typecheck("NodeNext", ["registration.ts"], ["--types", "vite/client,node"]);
-  // The README's own vitest.config.mts runs its test example.
+  // The README's own vitest.config.mts runs its test example and host.test.ts.
   run("pnpm", ["exec", "vitest", "run"]);
   console.log(`OK    package test: ${name}@${version} installs, imports, type-checks and runs`);
 } finally {

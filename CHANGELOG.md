@@ -64,7 +64,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The README follows the section layout shared by the @vllnt packages, with
   tables of every export and every error code, and `docs/API.md` has one heading
   per export and method. `llms.txt`, the TSDoc and the `package.json`
-  description and keywords match; `pnpm test:package` checks all of it on the
+  description and keywords match. `pnpm test:package` checks the README layout,
+  the export and error tables, links, examples and the description on the
   packed tarball. `docs/API.md` no longer says every `list` limit above 1000 is
   clamped: `Infinity` and fractions throw `INVALID_LIMIT`.
 

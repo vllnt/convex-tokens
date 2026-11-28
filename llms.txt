@@ -15,8 +15,9 @@ once. `validate` returns `{ valid: true, resourceRef? }` or `{ valid: false }`.
 `validate` then `revoke` in one mutation redeems a token once. Every token
 expires: `ttlMs` is clamped server-side into 60 000 ms to `maxTtlMs` (default
 30 days; the ceiling wins when lower), default 24 hours. `list` returns metadata
-only (never the hash), default 100 rows, integers above 1000 clamped, other
-values throw. `prune` deletes up to 256 expired tokens per call, and a daily
+only (never the hash), default 100 rows; integer limits above 1000 are clamped
+to 1000, and non-integers (including `Infinity`), NaN and negatives throw
+`INVALID_LIMIT`. `prune` deletes up to 256 expired tokens per call, and a daily
 cron deletes expired tokens and revoked tokens created more than 24 hours ago.
 Invalid input throws `ConvexError` with `data.code` `INVALID_SCOPE`,
 `INVALID_RESOURCE_REF`, `INVALID_TTL`, `INVALID_TOKEN_BYTES`,

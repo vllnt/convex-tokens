@@ -12,8 +12,8 @@
 | `@vllnt/convex-tokens/test`                             | `register(t, name = "tokens")` for `convex-test` (TypeScript source; needs Vite `import.meta.glob`)                                      |
 | `@vllnt/convex-tokens/_generated/component` (or `.js`)  | type `ComponentApi` (types only)                                                                                                         |
 
-The constants below are not exported; their values are fixed in
-`src/shared.ts`.
+The constants below are not exported from any entry point, so they cannot be
+imported; their values are fixed in `src/shared.ts`.
 
 | Constant                       | Value                     | Used for                                                         |
 | ------------------------------ | ------------------------- | ---------------------------------------------------------------- |
@@ -32,10 +32,36 @@ The constants below are not exported; their values are fixed in
 ### `Tokens`
 
 ```ts
-new Tokens(component: TokensComponent, options?: TokensOptions)
+import type { TokensComponent, TokensOptions } from "@vllnt/convex-tokens";
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+} from "convex/server";
+
+// Any ctx with runQuery: a query, mutation or action ctx. Not exported.
+interface RunQueryCtx {
+  runQuery<Q extends FunctionReference<"query", "internal">>(
+    reference: Q,
+    args: FunctionArgs<Q>,
+  ): Promise<FunctionReturnType<Q>>;
+}
+
+// Any ctx with runMutation: a mutation or action ctx. Not exported.
+interface RunMutationCtx {
+  runMutation<M extends FunctionReference<"mutation", "internal">>(
+    reference: M,
+    args: FunctionArgs<M>,
+  ): Promise<FunctionReturnType<M>>;
+}
+
+declare class Tokens {
+  constructor(component: TokensComponent, options?: TokensOptions);
+}
 ```
 
-`component` is the mounted component, `components.tokens` (or the name passed
+The method declarations below use `RunQueryCtx`, `RunMutationCtx` and the
+package's exported types. `component` is the mounted component, `components.tokens` (or the name passed
 to `app.use`). `options` are described under [`TokensOptions`](#tokensoptions).
 Every method takes the host `ctx` first: `mint`, `revoke` and `prune` need
 `ctx.runMutation` (a mutation or action), the others need `ctx.runQuery`. Where
@@ -53,7 +79,9 @@ sends a requested `ttlMs` and the component computes `expiresAt` from its own
 ### `mint`
 
 ```ts
-mint(ctx, opts?: MintOptions): Promise<MintResult>
+declare class Tokens {
+  mint(ctx: RunMutationCtx, opts?: MintOptions): Promise<MintResult>;
+}
 ```
 
 Generates a raw token of `tokenBytes` random bytes, hashes it with `hashAlgo`,
@@ -77,7 +105,13 @@ Errors: `INVALID_TOKEN_BYTES` (thrown by the client before any call),
 ### `validate`
 
 ```ts
-validate(ctx, rawToken: string, scope?: string): Promise<ValidateResult>
+declare class Tokens {
+  validate(
+    ctx: RunQueryCtx,
+    rawToken: string,
+    scope?: string,
+  ): Promise<ValidateResult>;
+}
 ```
 
 Hashes `rawToken` and looks it up. Returns `{ valid: true, resourceRef? }` when
@@ -90,7 +124,9 @@ cannot redeem a token.
 ### `revoke`
 
 ```ts
-revoke(ctx, rawToken: string, scope?: string): Promise<boolean>
+declare class Tokens {
+  revoke(ctx: RunMutationCtx, rawToken: string, scope?: string): Promise<boolean>;
+}
 ```
 
 Sets `revoked: true`. Returns `true` only if this call moved the token from
@@ -107,7 +143,9 @@ scope, or a token already revoked. Calling it twice returns `true`, then
 ### `list`
 
 ```ts
-list(ctx, opts?: ListOptions): Promise<TokenMetadata[]>
+declare class Tokens {
+  list(ctx: RunQueryCtx, opts?: ListOptions): Promise<TokenMetadata[]>;
+}
 ```
 
 Returns token metadata in `scope`, filtered by `resourceRef` when given, via the
@@ -124,7 +162,9 @@ cursor and no sign that more rows exist. Rows come in index order:
 ### `getMetadata`
 
 ```ts
-getMetadata(ctx, id: string): Promise<TokenMetadata | null>
+declare class Tokens {
+  getMetadata(ctx: RunQueryCtx, id: string): Promise<TokenMetadata | null>;
+}
 ```
 
 Returns one token's metadata by its component id (from `mint` or `list`), or
@@ -134,7 +174,9 @@ validates `id` as `v.id("tokens")`.
 ### `prune`
 
 ```ts
-prune(ctx, before?: number): Promise<number>
+declare class Tokens {
+  prune(ctx: RunMutationCtx, before?: number): Promise<number>;
+}
 ```
 
 Deletes up to `PRUNE_BATCH` (256) tokens whose `expiresAt` is before `before`
@@ -155,7 +197,7 @@ references. The generated [`ComponentApi`](#componentapi) has the same shape.
 ### `TokensOptions`
 
 ```ts
-{
+interface TokensOptions {
   defaultScope?: string; // default "global"; must not be ""
   defaultTtlMs?: number; // default 86_400_000 (24 hours)
   maxTtlMs?: number; // default 2_592_000_000 (30 days); must be > 0
@@ -191,7 +233,7 @@ before reading `resourceRef`; the `false` branch has no `resourceRef`.
 ### `TokenMetadata`
 
 ```ts
-{
+interface TokenMetadata {
   id: string;
   scope: string;
   resourceRef?: string;
@@ -206,10 +248,18 @@ before reading `resourceRef`; the `false` branch has no `resourceRef`.
 ### `useTokens`
 
 ```ts
-useTokens(
-  listRef: FunctionReference<"query", "public", { scope?: string; resourceRef: string }, TokenMetadata[]>,
+import type { TokenMetadata } from "@vllnt/convex-tokens";
+import type { FunctionReference } from "convex/server";
+
+declare function useTokens(
+  listRef: FunctionReference<
+    "query",
+    "public",
+    { scope?: string; resourceRef: string },
+    TokenMetadata[]
+  >,
   args: { scope?: string; resourceRef: string },
-): TokenMetadata[] | undefined
+): TokenMetadata[] | undefined;
 ```
 
 From `@vllnt/convex-tokens/react`. Calls `useQuery(listRef, args)` from
@@ -230,11 +280,19 @@ definition, `defineComponent("tokens")`. Mount it with `app.use(tokens)`, or
 ### `register`
 
 ```ts
-register(t: TestConvex<SchemaDefinition<GenericSchema, boolean>>, name?: string): void
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+
+// Source: register<TSchema extends GenericSchema>(t, name = "tokens")
+declare function register<TSchema extends GenericSchema>(
+  t: TestConvex<SchemaDefinition<TSchema, boolean>>,
+  name?: string, // default "tokens"
+): void;
 ```
 
 From `@vllnt/convex-tokens/test`. Mounts the component in a `convex-test`
-instance under `name` (default `"tokens"`), beside the host's own schema.
+instance under `name` (default `"tokens"`), beside the host's own schema: the
+generic `TSchema` accepts any host schema, with or without tables of its own.
 Shipped as TypeScript source that uses Vite's `import.meta.glob`, so run it
 under Vitest.
 
