@@ -27,6 +27,12 @@ const { name, version } = JSON.parse(readFileSync("package.json", "utf8"));
 if (typeof name !== "string" || typeof version !== "string")
   throw new Error("invalid package metadata");
 const tarball = `${name.replace("@", "").replace("/", "-")}-${version}.tgz`;
+const releaseAge = readFileSync("pnpm-workspace.yaml", "utf8");
+if (
+  !/^minimumReleaseAge: \d+$/mu.test(releaseAge) ||
+  !releaseAge.includes("minimumReleaseAgeExclude:")
+)
+  throw new Error("pnpm-workspace.yaml lacks the release-age gate");
 const temporary = mkdtempSync(join(tmpdir(), "tokens-consumer-"));
 /** @param {string} command @param {string[]} args @param {string} [cwd] */
 const run = (command, args, cwd = temporary) =>
@@ -66,9 +72,10 @@ try {
       type: "module",
     }),
     // pnpm 11 reads the build-script policy from the workspace file, pnpm 10 from package.json.
-    // No lockfile here: the repo's 7-day minimumReleaseAge keeps floating transitive deps off
-    // fresh releases. pnpm 10 and 11 read it from the workspace file, not from package.json.
-    "pnpm-workspace.yaml": "allowBuilds:\n  esbuild: false\nminimumReleaseAge: 10080\n",
+    // No lockfile here: the repo's release-age gate (minimumReleaseAge and its @vllnt/*
+    // exclusion) keeps floating transitive deps off fresh releases. pnpm 10 and 11 read it
+    // from the workspace file, so the root pnpm-workspace.yaml is appended as is.
+    "pnpm-workspace.yaml": `allowBuilds:\n  esbuild: false\n${releaseAge}`,
   });
   // Low end of the peer range (convex ^1.45.0, react >=18) and of the test toolchain.
   run("pnpm", [
