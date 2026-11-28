@@ -141,6 +141,29 @@ describe("tokens component — input validation", () => {
     expect(String(error)).not.toContain(secret);
   });
 
+  test("INVALID_TOKEN_HASH message points at the Tokens client, not an unexported helper", async () => {
+    const t = setup();
+    const error = await t
+      .mutation(api.mutations.mint, { ...base, tokenHash: "tooshort" })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ data: { code: "INVALID_TOKEN_HASH" } });
+    const message = (error as { data: { message: string } }).data.message;
+    expect(message).toContain("Tokens client");
+    expect(message).not.toContain("hashToken");
+  });
+
+  test("a maxTtlMs below MIN_TTL_MS caps the lifetime (the ceiling wins, as documented)", async () => {
+    const t = setup();
+    const id = await t.mutation(api.mutations.mint, {
+      ...base,
+      ttlMs: 10,
+      maxTtlMs: 30_000,
+    });
+    const meta = await t.query(api.queries.getMetadata, { id });
+    expect(meta).not.toBeNull();
+    expect(meta!.expiresAt - meta!.createdAt).toBe(30_000);
+  });
+
   test("list rejects a NaN, negative or fractional limit; 0 is allowed", async () => {
     const t = setup();
     for (const limit of [Number.NaN, -1, 1.5]) {

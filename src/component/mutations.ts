@@ -26,8 +26,9 @@ const HASH_PATTERN = /^[0-9a-f]+$/;
  * Mint a token. The component computes `expiresAt` itself from a requested
  * `ttlMs` — it never trusts a client-supplied timestamp. `ttlMs` is clamped into
  * `[MIN_TTL_MS, maxTtlMs]`; a non-finite `ttlMs` (NaN / Infinity) falls back to
- * `defaultTtlMs`. This guarantees a minted token always outlives a `Date.now()`
- * validate (the floor is `MIN_TTL_MS`).
+ * `defaultTtlMs`. `maxTtlMs` must be greater than 0. The floor `MIN_TTL_MS`
+ * applies unless `maxTtlMs` is lower: the ceiling wins, so `maxTtlMs: 30_000`
+ * mints a token that lives 30 000 ms whatever `ttlMs` asks for.
  */
 export const mint = mutation({
   args: {
@@ -68,7 +69,7 @@ export const mint = mutation({
         code: "INVALID_TOKEN_HASH",
         message:
           "tokenHash must be a lowercase hex digest of at least 64 characters (SHA-256 minimum). " +
-          "Use client.hashToken() to produce a valid hash.",
+          "Mint through the Tokens client, which generates and hashes the token.",
       });
     }
     const existing = await ctx.db

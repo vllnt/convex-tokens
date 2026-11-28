@@ -10,7 +10,10 @@ export const DEFAULT_SCOPE = "global";
 /** Default token lifetime: 24 hours. */
 export const DEFAULT_TTL_MS = 86_400_000;
 
-/** Floor for a clamped TTL: 1 minute (a minted token always outlives a `Date.now()` test). */
+/**
+ * Floor for a clamped TTL: 1 minute. It applies unless the mount's `maxTtlMs`
+ * is lower, in which case the ceiling wins and the token lives `maxTtlMs`.
+ */
 export const MIN_TTL_MS = 60_000;
 
 /** Default ceiling for a clamped TTL: 30 days. */
@@ -87,8 +90,9 @@ export function generateToken(bytes = DEFAULT_TOKEN_BYTES): string {
 /**
  * Clamp `ttlMs` into `[minMs, maxMs]`. A non-finite `ttlMs` (NaN / Infinity)
  * falls back to `fallbackMs`; a non-finite `fallbackMs` falls back to `minMs`.
- * The result is therefore always finite and >= `minMs`, so a malformed request
- * can never produce a non-finite `expiresAt` (the expiry invariant holds).
+ * The result is finite whenever `maxMs > 0` (`mint` rejects any other
+ * `maxTtlMs`), so a malformed request can never produce a non-finite
+ * `expiresAt`. It is >= `minMs` unless `maxMs` is lower: the ceiling wins.
  *
  * @param ttlMs - Requested lifetime in ms.
  * @param minMs - Lower bound (also the ultimate finite fallback).
