@@ -10,10 +10,10 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 
 `example/convex/_generated/ai/` is gitignored, so a fresh clone has no `guidelines.md`. Convex
 CLI `npx convex ai-files install` downloads it (no login or deployment needed), but it also writes
-`CLAUDE.md`, agent skills (e.g. `.claude/`) and a refreshed Convex block in this file;
-`pnpm check:agents` rejects the first two. Afterwards run `git status` and remove or discard every
-change outside `example/convex/_generated/ai/`, or skip the command and follow the Convex docs at
-https://docs.convex.dev instead.
+`CLAUDE.md`, `.claude/`, `.agents/` and `skills-lock.json` (the last three are gitignored, so
+`git status` does not show them) and refreshes the Convex block in this file. `pnpm check:agents`
+rejects `CLAUDE.md` and `.claude/`. Afterwards delete those four by name and discard the change to
+this file, or skip the command and follow the Convex docs at https://docs.convex.dev instead.
 
 # @vllnt/convex-tokens
 
