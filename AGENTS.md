@@ -8,6 +8,13 @@ override what you may have learned about Convex from training data.
 Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 <!-- convex-ai-end -->
 
+`example/convex/_generated/ai/` is gitignored, so a fresh clone has no `guidelines.md`. Convex
+CLI `npx convex ai-files install` downloads it (no login or deployment needed), but it also writes
+`CLAUDE.md`, `.claude/`, `.agents/` and `skills-lock.json` (the last three are gitignored, so
+`git status` does not show them) and refreshes the Convex block in this file. `pnpm check:agents`
+rejects `CLAUDE.md` and `.claude/`. Afterwards delete those four by name and discard the change to
+this file, or skip the command and follow the Convex docs at https://docs.convex.dev instead.
+
 # @vllnt/convex-tokens
 
 TypeScript Convex component for expiring, revocable secret tokens stored only as SHA-256 or SHA-512
@@ -35,6 +42,7 @@ src/
     ├── queries.ts          # all queries (validate, list, getMetadata)
     ├── validators.ts       # shared validators
     ├── schema.ts           # sandboxed tokens table
+    ├── crons.ts            # daily pruneExpired sweep
     └── convex.config.ts    # defineComponent("tokens")
 ```
 
