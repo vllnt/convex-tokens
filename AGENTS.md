@@ -10,7 +10,8 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 
 # @vllnt/convex-tokens
 
-Hashed-secret token primitive with mint-once, TTL, revoke and scope, as a Convex component. Follows
+TypeScript Convex component for expiring, revocable secret tokens stored only as SHA-256 or SHA-512
+hashes: mint once, validate, revoke, scope, prune. Follows
 the vllnt Component Standard (see the `oss-packages` hub `AGENTS.md`).
 
 ## Agent instructions

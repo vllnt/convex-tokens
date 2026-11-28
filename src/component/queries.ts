@@ -35,8 +35,9 @@ export const validate = query({
  * lifecycle fields — NEVER `tokenHash`. Filters by `scope` and optional
  * `resourceRef` via the `by_scope_resource` index (a bounded lookup, not a
  * table scan). Returns up to `limit` (default 100, ceiling {@link LIST_LIMIT_MAX})
- * rows. A `limit` above the ceiling is silently clamped; `limit: 0` returns an
- * empty array.
+ * rows. An integer `limit` above the ceiling is silently clamped; `limit: 0`
+ * returns an empty array; NaN, `Infinity`, fractions and negative values throw
+ * `INVALID_LIMIT`.
  */
 export const list = query({
   args: {
