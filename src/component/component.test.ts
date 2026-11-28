@@ -141,6 +141,17 @@ describe("tokens component — input validation", () => {
     expect(String(error)).not.toContain(secret);
   });
 
+  test("INVALID_TOKEN_HASH message points at the Tokens client, not an unexported helper", async () => {
+    const t = setup();
+    const error = await t
+      .mutation(api.mutations.mint, { ...base, tokenHash: "tooshort" })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ data: { code: "INVALID_TOKEN_HASH" } });
+    const message = (error as { data: { message: string } }).data.message;
+    expect(message).toContain("Tokens client");
+    expect(message).not.toContain("hashToken");
+  });
+
   test("list rejects a NaN, negative or fractional limit; 0 is allowed", async () => {
     const t = setup();
     for (const limit of [Number.NaN, -1, 1.5]) {

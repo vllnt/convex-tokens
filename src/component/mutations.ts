@@ -68,7 +68,7 @@ export const mint = mutation({
         code: "INVALID_TOKEN_HASH",
         message:
           "tokenHash must be a lowercase hex digest of at least 64 characters (SHA-256 minimum). " +
-          "Use client.hashToken() to produce a valid hash.",
+          "Mint through the Tokens client, which generates and hashes the token.",
       });
     }
     const existing = await ctx.db
